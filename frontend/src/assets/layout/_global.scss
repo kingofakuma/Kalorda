@@ -1,0 +1,46 @@
+// 全局loading message等样式
+.layout-global-loading-mask {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 3998;
+    width: 100%;
+    height: 100%;
+    opacity: 0.1;
+    background-color: var(--primary-color);
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+}
+
+.layout-global-loading-box {
+    position: fixed;
+    top: calc(50% - 30px);
+    left: calc(50% - 30px);
+    z-index: 3999;
+    text-align: center;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    .p-progressspinner {
+        width: 60px;
+        height: 60px;
+    }
+    .layout-global-loading-message {
+        white-space: nowrap;
+    }
+}
+
+.layout-global-message {
+    position: fixed;
+    top: 9px;
+    left: 50%;
+    justify-content: center;
+    z-index: 3999;
+    .p-message {
+        overflow: hidden;
+        white-space: nowrap;
+    }
+}

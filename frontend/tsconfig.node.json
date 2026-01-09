@@ -1,0 +1,13 @@
+{
+    "compilerOptions": {
+      "composite": true,
+      "skipLibCheck": true,
+      "module": "ESNext",
+      "moduleResolution": "node",//bundler
+      //"allowImportingTsExtensions": true, 
+      "allowSyntheticDefaultImports": true,
+      "emitDeclarationOnly": true, // 仅生成.d.ts文件，不生成.js文件
+    },
+    "include": ["vite.config.ts"]
+  }
+  

@@ -1,5 +1,5 @@
 <p align="center">
-<img src="../frontend/public/logo.png" alt="Kalorda" align="center" style="margin: 20px 20px -20px 0;">
+<img src="https://raw.githubusercontent.com/vlmOCR/Kalorda/refs/heads/main/frontend/public/logo.png" alt="Kalorda" align="center" style="margin: 20px 20px -20px 0;">
 </p>
 <h1 align="center" style="font-size: 60px;"><b>Kalorda</b></h1>
 <p align="center" style="font-size: 25px;"><b>轻量vlmOCR模型一站式微调平台</b></p>

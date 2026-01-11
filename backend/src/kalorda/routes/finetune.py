@@ -389,7 +389,7 @@ def convert_ocr_label(image: DatasetImageDB, ocr_model: OcrModel):
         ocr_text = []
         for item in json_labels:
             ocr_text.append(html_format(item["text"]))  # 只取text
-        return "\\n".join(ocr_text)
+        return "\n".join(ocr_text)
 
     # 2、dotsOCR 模型
     if ocr_model == OcrModel.dotsocr:
@@ -400,13 +400,13 @@ def convert_ocr_label(image: DatasetImageDB, ocr_model: OcrModel):
         return json.dumps(json_labels, ensure_ascii=False)
 
     # 3、dolphin 模型
-    if ocr_label_json_str == OcrModel.dolphin:
+    if ocr_model == OcrModel.dolphin:
         json_labels = json.loads(ocr_label_json_str)
         ocr_text = []
         for item in json_labels:
-            item["text"] = html_format(item["text"])
-            # TODO: 还需要有dolphin的额外处理
-        return json.dumps(json_labels, ensure_ascii=False)
+            ocr_text.append(html_format(item["text"]))  # 只取text
+            # TODO: 后续可补充构造 layout 信息参与微调
+        return "\n".join(ocr_text)
 
     # 4、deepseek_ocr 模型
     if ocr_model == OcrModel.deepseek_ocr:
@@ -422,9 +422,9 @@ def convert_ocr_label(image: DatasetImageDB, ocr_model: OcrModel):
                 int(y2 * 999 / image_height),
             )
             ocr_text.append(
-                f"<|ref|>{item['category']}<|/ref|><|det|>[[{x1},{y1},{x2},{y2}]]<|/det|>\\n{html_format(item['text'])}"
+                f"<|ref|>{item['category']}<|/ref|><|det|>[[{x1},{y1},{x2},{y2}]]<|/det|>\n{html_format(item['text'])}"
             )
-        return "\\n".join(ocr_text)
+        return "\n".join(ocr_text)
 
     # 5、paddleocr_vl 模型
     if ocr_model == OcrModel.paddleocr_vl:
@@ -433,7 +433,7 @@ def convert_ocr_label(image: DatasetImageDB, ocr_model: OcrModel):
         ocr_text = []
         for item in json_labels:
             ocr_text.append(html_format(item["text"]))  # 只取text
-        return "\\n".join(ocr_text)
+        return "\n".join(ocr_text)
 
     # 6、hunyuan_ocr 模型
     if ocr_model == OcrModel.hunyuan_ocr:
@@ -442,7 +442,7 @@ def convert_ocr_label(image: DatasetImageDB, ocr_model: OcrModel):
         ocr_text = []
         for item in json_labels:
             ocr_text.append(html_format(item["text"]))  # 只取text
-        return "\\n".join(ocr_text)
+        return "\n".join(ocr_text)
 
 
 def append_write_file(file_path: str, content: str):

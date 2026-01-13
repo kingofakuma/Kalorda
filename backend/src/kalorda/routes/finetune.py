@@ -210,7 +210,7 @@ def combine_sft_data(task: FineTuneTaskDB):
     task.data_combine_status = CombineDataStatus.combining["value"]
     task.save()
 
-    task_base_dir, task_data_dir = get_finetune_task_directory(task.id)
+    __, task_data_dir = get_finetune_task_directory(task.id)
 
     train_data_path = task_data_dir + f"/train_{uuid.uuid4()}.jsonl"
     val_data_path = task_data_dir + f"/val_{uuid.uuid4()}.jsonl"
@@ -340,7 +340,7 @@ def html_format(html: str):
     html = re.sub(r"<temporary.*?></temporary>", "", html)
     html = re.sub(r'<p class="ql-table-block".*?><br></p>', "", html)
     html = re.sub(r'<p class="ql-table-block".*?>', "<p>", html)
-    
+
     # div标签替换
     html = re.sub(r"<div></div>", "", html)
     html = re.sub(r"<div>([\s\S]*?)</div>", r"\1 \n ", html)
@@ -1195,7 +1195,7 @@ def reset_training_run(
 
         # 步骤3：删除已有日志文件
         task_id = training_run.task_id
-        task_base_dir = get_finetune_task_directory(task_id)
+        task_base_dir, __ = get_finetune_task_directory(task_id)
         log_file = f"{task_base_dir}/train_log_{run_id}.log"
         if os.path.exists(log_file):
             os.remove(log_file)
@@ -1287,8 +1287,9 @@ def get_training_run_log(
     """
     获取训练实例日志
     """
-    task_base_dir = get_finetune_task_directory(task_id)
+    task_base_dir, __ = get_finetune_task_directory(task_id)
     log_file = f"{task_base_dir}/train_log_{run_id}.log"
+    logger.info(f"获取训练实例日志: {log_file}")
     log_content = ""
     if os.path.exists(log_file):
         with open(log_file, "r") as f:

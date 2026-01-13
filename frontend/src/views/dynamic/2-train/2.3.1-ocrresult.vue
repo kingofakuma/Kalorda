@@ -2303,7 +2303,7 @@ const markdown2Html = async (markdown: string, imageInfo: any) => {
         text = text.replace(find, figure);
     }
 
-    // 几何图形 TODO: tikzcd/circuitikz
+    // 几何图形 tikz/latex 直接svg预览
     reg = /\\usetikzlibrary([\s\S]*?)\\end{tikzpicture}/gi;
     while ((res = reg.exec(text))) {
         let find = res[0];
@@ -2314,8 +2314,10 @@ const markdown2Html = async (markdown: string, imageInfo: any) => {
         }
         let caption = ``;
         //encodeURIComponent避免中间过程因特殊字符造成的问题（后面再解码）
-        let tikz = `<div id="tikzjax-${uuid()}" data-latex="${encodeURIComponent(find)}" class="ql-tikzjax"><label></label><div>${svg}</div><span>${caption}</span></div>`;
-        text = text.replace(find, tikz);
+        // let tikz = `<tikz-jax class="ql-tikzjax" id="tikzjax-${uuid()}" data-latex="${encodeURIComponent(find)}" data-svg="${encodeURIComponent(svg)}" data-caption="${encodeURIComponent(caption)}"></tikz-jax>`;
+        // 这里因直接预览，不需要tikz-jax标签，直接显示svg
+        let svgContent = `<span style="display: inline-block;">${svg}${caption}</span>`
+        text = text.replace(find, svgContent);
     }
     reg = /\\begin{tikzpicture}([\s\S]*?)\\end{tikzpicture}/gi;
     while ((res = reg.exec(text))) {
@@ -2327,8 +2329,10 @@ const markdown2Html = async (markdown: string, imageInfo: any) => {
         }
         let caption = ``;
         //encodeURIComponent避免中间过程因特殊字符造成的问题（后面再解码）
-        let tikz = `<div id="tikzjax-${uuid()}" data-latex="${encodeURIComponent(find)}" class="ql-tikzjax"><label></label><div>${svg}</div><span>${caption}</span></div>`;
-        text = text.replace(find, tikz);
+        // let tikz = `<tikz-jax class="ql-tikzjax" id="tikzjax-${uuid()}" data-latex="${encodeURIComponent(find)}" data-svg="${encodeURIComponent(svg)}" data-caption="${encodeURIComponent(caption)}"></tikz-jax>`;
+        // 这里因直接预览，不需要tikz-jax标签，直接显示svg
+        let svgContent = `<span style="display: inline-block;">${svg}${caption}</span>`
+        text = text.replace(find, svgContent);
     }
 
     // 公式 latex

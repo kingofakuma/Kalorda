@@ -18,7 +18,8 @@ export class HatchingLineBlot extends Inline {
 
     html() {
         const text = getInnerText(this.domNode);
-        return isNotEmpty(text) ? `\\xout{${text}}` : '';
+        if (!isNotEmpty(text)) return '';
+        return `<u class="ql-hatching-line" style="text-decoration: none; background: repeating-linear-gradient(-60deg, currentcolor, currentcolor, transparent 2px, transparent 12px);">${text}</u>`;
     }
 }
 

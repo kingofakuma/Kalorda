@@ -19,7 +19,8 @@ export class DoubleUnderlineBlot extends Inline {
 
     html() {
         const text = getInnerText(this.domNode);
-        return isNotEmpty(text) ? `\\uuline{${text}}` : '';
+        if (!isNotEmpty(text)) return '';
+        return `<u class="ql-double-underline" style="text-decoration: underline; text-decoration-style: double; text-underline-offset: 0.3rem;">${text}</u>`;
     }
 }
 

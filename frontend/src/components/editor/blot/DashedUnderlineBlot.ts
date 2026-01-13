@@ -19,7 +19,8 @@ export class DashedUnderlineBlot extends Inline {
 
     html() {
         const text = getInnerText(this.domNode);
-        return isNotEmpty(text) ? `\\dashuline{${text}}` : '';
+        if (!isNotEmpty(text)) return '';
+        return `<u class="ql-dashed-underline" style="text-decoration: underline; text-decoration-style: dashed; text-underline-offset: 0.3rem;">${text}</u>`;
     }
 }
 

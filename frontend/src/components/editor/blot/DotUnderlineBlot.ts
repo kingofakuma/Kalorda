@@ -22,7 +22,8 @@ export class DotUnderlineBlot extends Inline {
 
     html() {
         const text = getInnerText(this.domNode);
-        return isNotEmpty(text) ? `\\dotuline{${text}}` : '';
+        if (!isNotEmpty(text)) return '';
+        return `<u class="ql-dot-underline" style="padding-bottom: 0.2rem; text-decoration: none; background-position: bottom; background-size: 10px 2px; background-repeat: repeat-x; background-image: radial-gradient(circle, currentcolor 1px, transparent 1px);">${text}</u>`;
     }
 }
 

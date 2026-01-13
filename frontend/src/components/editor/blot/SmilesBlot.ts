@@ -39,7 +39,9 @@ export class SmilesBlot extends EmbedBlot {
 
     html() {
         const smiles = this.domNode.getAttribute('data-smiles');
-        return `${smiles}`;
+        const id = this.domNode.id;
+        const svg = this.domNode.querySelector('div')?.innerHTML || '';
+        return `<div class="ql-smiles" id="${id}" data-smiles="${smiles || ''}" contenteditable="false"><div>${svg}</div></div>`;
     }
 }
 

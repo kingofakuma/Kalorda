@@ -250,7 +250,7 @@ const formulaEdit = (formulaId: string, formula: string) => {
                     .insert({ mathfield: { formula: formula, formulaId: formulaId } });
                 quill.updateContents(delta, Quill.sources.USER);
                 quill.setSelection(range.index + 1, Quill.sources.SILENT);
-                // 动画凸现效果
+                // 选中高亮效果
                 let element = $dom('#' + formulaId);
                 element.style.background = getHighlightColor();
                 let t = setTimeout(() => {
@@ -317,10 +317,10 @@ const tikZJaxEdit = (data?: any) => {
                 const delta = new Delta()
                     .retain(range.index)
                     .delete(Math.max(deleteCount, range.length))
-                    .insert({ tikzjax: { id: id, latex: encodeURIComponent(latex), svg: svg, caption: caption } }); //encodeURIComponent编码避免特殊字符产生的问题
+                    .insert({ tikzjax: { id: id, latex: encodeURIComponent(latex), svg: encodeURIComponent(svg), caption: encodeURIComponent(caption) } }); //encodeURIComponent编码避免特殊字符产生的问题
                 quill.updateContents(delta, Quill.sources.USER);
                 quill.setSelection(range.index + 1, Quill.sources.SILENT);
-                // 动画凸现效果
+                // 选中高亮效果
                 let element = $dom('#' + id);
                 element.style.background = getHighlightColor();
                 let t = setTimeout(() => {
@@ -345,7 +345,7 @@ const illusAdd = () => {
             .insert({ illustrate: { id: id, src: illusValue.value.src, position: illusValue.value.position, caption: '' } });
         quill.updateContents(delta, Quill.sources.USER);
         quill.setSelection(range.index + 1, Quill.sources.SILENT);
-        // 动画凸现效果
+        // 选中高亮效果
         // let element = $dom('#' + id);
         // element.style.background = getHighlightColor();
         // element.style.opacity = '0.5';
@@ -467,9 +467,8 @@ const editorClickEvent = (e: MouseEvent) => {
     if (tikzJaxBlot) {
         const { id, latex, svg, caption } = TikZJaxBlot.value(tikzJaxBlot.domNode);
         if (id && latex) {
-            console.log('当前选了tikz图形');
             currentTikzJax = { id: id, latex: latex, svg: svg, caption: caption };
-
+            console.log('当前选了tikz图形', currentTikzJax);
             // TODO: 设置quill的range
             const quill = editorInstance.value.quill;
             const index = quill.getIndex(tikzJaxBlot); // 获取元素在 Quill 文档中的索引
@@ -656,8 +655,6 @@ watch(
 );
 
 const onEditorChange = (value: any) => {
-    // console.log('onEditorChange', value);
-    // value.htmlValue 是编辑器输出结果html-markdown格式 / value.textValue 是编辑器输出的纯文本，没有什么用的
     emit('update:editorOutput', value.htmlValue);
     emit('editorOutputChanged', value.htmlValue);
 };

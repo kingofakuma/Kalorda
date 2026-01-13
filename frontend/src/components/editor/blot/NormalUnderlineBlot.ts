@@ -18,7 +18,8 @@ export class NormalUnderlineBlot extends Inline {
 
     html() {
         const text = getInnerText(this.domNode);
-        return isNotEmpty(text) ? `\\uline{${text}}` : '';
+        if (!isNotEmpty(text)) return '';
+        return `<u class="ql-normal-underline" style="text-decoration: underline; text-underline-offset: 0.3rem;">${text}</u>`;
     }
 }
 

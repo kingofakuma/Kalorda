@@ -38,7 +38,8 @@ export class MathfieldBlot extends EmbedBlot {
 
     html() {
         const formula = this.domNode.value;
-        return `\\( ${formula} \\)`;
+        const formulaId = this.domNode.id;
+        return `<math-field class="ql-math-field" id="${formulaId}" mode="only-read" view">${formula}</math-field>`;
     }
 }
 

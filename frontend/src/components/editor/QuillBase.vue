@@ -156,10 +156,11 @@ export default {
         renderValue(value) {
             if (this.quill) {
                 this.quill.setText('');
+                // this.quill.root.innerHTML = "";
                 if (value) {
                     const delta = this.quill.clipboard.convert({ html: value });
                     this.quill.updateContents(delta);
-                } 
+                }
             }
         },
         initQuill() {
@@ -175,9 +176,9 @@ export default {
                     //     html = '';
                     // }
 
-                    html = html.replace(/<p>[\s]*?<\/p>/g, '');
-                    html = html.replace(/<p><br[^<>]*?><\/p>/g, '');
-                    html = html.replace(/&nbsp;/g, ' ');
+                    // html = html.replace(/<p>[\s]*?<\/p>/g, '');
+                    // html = html.replace(/<p><br[^<>]*?><\/p>/g, '');
+                    // html = html.replace(/&nbsp;/g, ' ');
 
                     this.writeValue(html);
                     this.$emit('text-change', {

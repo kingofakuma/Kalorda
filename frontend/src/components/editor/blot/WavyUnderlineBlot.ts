@@ -19,7 +19,8 @@ export class WavyUnderlineBlot extends Inline {
 
     html() {
         const text = getInnerText(this.domNode);
-        return isNotEmpty(text) ? `\\uwave{${text}}` : '';
+        if (!isNotEmpty(text)) return '';
+        return `<u class="ql-wavy-underline" style="text-decoration: underline; text-decoration-style: wavy; text-underline-offset: 0.2rem;">${text}</u>`;
     }
 }
 

@@ -484,9 +484,6 @@ const switchRightPanelMode = (mode: number) => {
     }
 };
 
-const editorOutputChanged = async () => {
-    selectedImageLabelData.value.editorValue = await markdown2Html(selectedImageLabelData.value.ocrText);
-};
 
 const labelNumberOpacity = (rightPanelMode: number) => {
     // 第1个tab 列表显示 透明度1
@@ -596,6 +593,7 @@ interface LabelInfo {
 // 数据源
 let imageLabelData: LabelInfo[] = reactive([]);
 let selectedImageLabelData: any = ref(); // DataTable需要用到的
+let editorValueSourceText = ref(''); // 源码编辑时显示的内容
 let fabricImageCanvas: Canvas;
 
 // 标签区块单独弹窗预览
@@ -3188,7 +3186,7 @@ const markdown2Html = async (markdown: string) => {
         text = text.replace(find, figure);
     }
 
-    // 几何图形 TODO: tikzcd/circuitikz
+    // 几何图形 tikz/latex 转成Quill编辑器自定义<tikz-jax>元素
     reg = /\\usetikzlibrary([\s\S]*?)\\end{tikzpicture}/gi;
     while ((res = reg.exec(text))) {
         let find = res[0];
@@ -3199,7 +3197,7 @@ const markdown2Html = async (markdown: string) => {
         }
         let caption = ``;
         //encodeURIComponent避免中间过程因特殊字符造成的问题（后面再解码）
-        let tikz = `<div id="tikzjax-${uuid()}" data-latex="${encodeURIComponent(find)}" class="ql-tikzjax"><label></label><div>${svg}</div><span>${caption}</span></div>`;
+        let tikz = `<tikz-jax class="ql-tikzjax" id="tikzjax-${uuid()}" data-latex="${encodeURIComponent(find)}" data-svg="${encodeURIComponent(svg)}" data-caption="${encodeURIComponent(caption)}"></tikz-jax>`;
         text = text.replace(find, tikz);
     }
     reg = /\\begin{tikzpicture}([\s\S]*?)\\end{tikzpicture}/gi;
@@ -3212,7 +3210,7 @@ const markdown2Html = async (markdown: string) => {
         }
         let caption = ``;
         //encodeURIComponent避免中间过程因特殊字符造成的问题（后面再解码）
-        let tikz = `<div id="tikzjax-${uuid()}" data-latex="${encodeURIComponent(find)}" class="ql-tikzjax"><label></label><div>${svg}</div><span>${caption}</span></div>`;
+        let tikz = `<tikz-jax class="ql-tikzjax" id="tikzjax-${uuid()}" data-latex="${encodeURIComponent(find)}"  data-svg="${encodeURIComponent(svg)}" data-caption="${encodeURIComponent(caption)}"></tikz-jax>`;
         text = text.replace(find, tikz);
     }
 
@@ -3288,6 +3286,134 @@ const markdown2Html = async (markdown: string) => {
     return html;
 };
 
+// 编辑器输出的html转换为markdown
+const html2Markdown = (html: string) => {
+
+    // 代码块
+    html = html.replace(/<pre data-language="plain">([\s\S]*?)<\/pre>/gi, '```$1```');
+    // hr分割线
+    html = html.replace(/<hr([^>]*?)>/gi, '\\hrulefill');
+
+    // 文本
+    html = html.replace(/<i([^>]*?)>([\s\S]*?)<\/i>/gi, '\\textit{$2}'); //斜体
+    html = html.replace(/<b([^>]*?)>([\s\S]*?)<\/b>/gi, '\\textbf{$2}'); //粗体
+    html = html.replace(/<em([^>]*?)>([\s\S]*?)<\/em>/gi, '\\textit{$2}'); //斜体
+    html = html.replace(/<strong([^>]*?)>([\s\S]*?)<\/strong>/gi, '\\textbf{$2}'); //粗体
+    html = html.replace(/<s([^>]*?)>([\s\S]*?)<\/s>/gi, '\\sout{$2}'); //中间删除线
+    html = html.replace(/<strike([^>]*?)>([\s\S]*?)<\/strike>/gi, '\\sout{$2}'); //中间删除线
+    html = html.replace(/<del([^>]*?)>([\s\S]*?)<\/del>/gi, '\\sout{$2}'); //中间删除线
+
+    // 标题
+    html = html.replace(/<h1([^>]*?)>([\s\S]*?)<\/h1>/gi, '\\title{$2}');
+    html = html.replace(/<h2([^>]*?)>([\s\S]*?)<\/h2>/gi, '\\section{$2}');
+    html = html.replace(/<h3([^>]*?)>([\s\S]*?)<\/h3>/gi, '\\subsection{$2}');
+    html = html.replace(/<h4([^>]*?)>([\s\S]*?)<\/h3>/gi, '\\subsubsection{$2}');
+
+    let reg;
+    let res;
+
+    // 无序列表
+    reg = /<ol([^>]*?)>([\s\S]*?)<\/ol>/gi;
+    while ((res = reg.exec(html))) {
+        let ol = res[0];
+        let arr = res[2].split('</li>');
+        let latex = `\\begin{itemize}`;
+        for (let i = 0; i < arr.length; i++) {
+            arr[i] = arr[i].replace(/<li>/gi, '');
+            if (arr[i].trim().length > 0) {
+                latex += ` \\item ${arr[i].trim()}`;
+            }
+        }
+        latex += ` \\end{itemize}`;
+        html = html.replace(ol, latex);
+    }
+    // 有序列表
+    reg = /<ul([^>]*?)>([\s\S]*?)<\/ul>/gi;
+    while ((res = reg.exec(html))) {
+        let ul = res[0];
+        let arr = res[2].split('</li>');
+        let latex = `\\begin{enumerate}`;
+        for (let i = 0; i < arr.length; i++) {
+            arr[i] = arr[i].replace(/<li>/gi, '');
+            if (arr[i].trim().length > 0) {
+                latex += ` \\item ${arr[i].trim()}`;
+            }
+        }
+        latex += ` \\end{enumerate}`;
+        html = html.replace(ul, latex);
+    }
+
+    // 引用
+    html = html.replace(/<blockquote([^>]*?)>([\s\S]*?)<\/blockquote>/gi, '> $2\\n');
+
+
+    // 公式
+    reg = /<math-field([\s\S]*?)>([\s\S]*?)<\/math-field>/gi;
+    while ((res = reg.exec(html))) {
+        let find = res[0];
+        let latex = res[2];
+        if (latex.indexOf('\\') == -1 && latex.indexOf('\n') == -1 && latex.indexOf('\r') == -1) {
+            latex = '$ ' + latex + ' $'; // 行内公式
+        } else {
+            latex = '$$ ' + latex + ' $$'; // 行间公式
+        }
+        html = html.replace(find, latex);
+    }
+
+    // tikz 图形只留latex 参见TikZJaxBlot.ts
+    reg = /<tikz-jax class="ql-tikzjax" id="([\s\S]*?)" data-latex="([\s\S]*?)" data-svg="([\s\S]*?)" data-caption="([\s\S]*?)"><\/tikz-jax>/gi;
+    while ((res = reg.exec(html))) {
+        let find = res[0];
+        let latex = decodeURIComponent(res[2]);
+        console.log('latex', latex);
+        html = html.replace(find, latex);
+    }
+
+    // html = html.replace('<p', '\n<p');
+    // html = html.replace(/<p([^>]*?)>([\s\S]*?)<\/p>/gi, '$2 \n');
+    // html = html.replace(/<div([^>]*?)>([\s\S]*?)<\/div>/gi, '$2 \n');
+
+    // // 多个连续的\n合并为一个
+    // html = html.replace(/[\\n|\s]{2,}/g, '\n');
+
+    //移除开头或者结尾多余空行的<p></p>
+    html = html.replace(/^(<p><\/p>)+/gi, '');
+    html = html.replace(/(<p><\/p>)+$/gi, '');
+
+    return html;
+};
+
+const editorValue2Preview = (editorValue: string) => {
+    let reg: RegExp;
+    let res: RegExpExecArray | null;
+    let html = editorValue;
+
+    // 处理tikz-jax图形非编辑器模式下预览：直接显示svg
+    reg = /<tikz-jax([\s\S]*?)data-svg="([\s\S]*?)" data-caption="([\s\S]*?)"><\/tikz-jax>/gi;
+    while ((res = reg.exec(html))) {
+        let find = res[0];
+        let svgContent = decodeURIComponent(res[2]);
+        let caption = decodeURIComponent(res[3]);
+        svgContent = `<span style="display: inline-block;">${svgContent}${caption}</span>`
+        html = html.replace(find, svgContent);
+    }
+
+    return html;
+}
+
+// 编辑器源码编辑切换
+const editorSourceToggle = (isSource: boolean) => {
+    sourceToggle.value = isSource;
+    if (isSource) {
+        editorValueSourceText.value = selectedImageLabelData.value.editorValue;
+    } else {
+        // 切换为非源码编辑模式时，需要对标注结果进行格式化
+        selectedImageLabelData.value.editorValue = editorValueSourceText.value;
+    }
+}
+
+
+
 const changeQuillEditorHeight = () => {
     let cropHeight = 400;
     let windowHeight = window.innerHeight;
@@ -3296,18 +3422,11 @@ const changeQuillEditorHeight = () => {
     }
 };
 
-// 源码编辑时内容变化同步到editor
-const sourceTextChanged = async (e: any) => {
-    let text = e.target.value;
-    selectedImageLabelData.value.editorValue = await markdown2Html(text);
-};
-
 // 格式化标注结果
 const format_label_text = (lableInfo: LabelInfo) => {
-    // let model_type = dataset.value.model_type;
-    let text = lableInfo.ocrText;
-    console.log('aaa', text);
-    console.log('bbb', lableInfo.editorValue);
+    let text = html2Markdown(lableInfo.editorValue);
+    lableInfo.ocrText = text;
+    console.log('ocrText', text);
     // 统一按 dotsOCR 格式保存 {"bbox": [x1, y1, x2, y2], "category": "category", "text": "text"}
     let result = { bbox: [lableInfo.pos1[0], lableInfo.pos1[1], lableInfo.pos2[0], lableInfo.pos2[1]], category: lableInfo.category.code, text: text };
     return result;
@@ -3391,37 +3510,32 @@ onBeforeUnmount(() => {
 });
 </script>
 <template>
-    <div id="page_container" style="position: absolute; left: 0; top: 0; z-index: 1000" class="w-full h-full bg-surface-100 dark:bg-surface-900 overflow-hidden">
+    <div id="page_container" style="position: absolute; left: 0; top: 0; z-index: 1000"
+        class="w-full h-full bg-surface-100 dark:bg-surface-900 overflow-hidden">
         <div class="flex flex-col md:flex-row gap-8 h-full">
             <div class="w-[18rem] min-w-[18rem] h-full">
                 <div class="w-full flex items-center m-4 ml-8">
-                    <div class="flex gap-2"><Button icon="pi pi-reply" :size="'small'" rounded class="mr-2" @click="routeBack()" style="transform: rotateY(180deg)" /></div>
-                    <div class="font-semibold text-xl"><i class="pi pi-longPressFlag-fill" /> {{ t('page.label.title') }}</div>
+                    <div class="flex gap-2"><Button icon="pi pi-reply" :size="'small'" rounded class="mr-2"
+                            @click="routeBack()" style="transform: rotateY(180deg)" /></div>
+                    <div class="font-semibold text-xl"><i class="pi pi-longPressFlag-fill" /> {{ t('page.label.title')
+                        }}</div>
                 </div>
                 <div class="w-full ml-8 bg-white dark:bg-surface-800 rounded-md" style="height: calc(100vh - 70px)">
                     <div class="w-full h-full select-none">
                         <!-- 图片列表 showLoader :loading="lazyLoading" -->
-                        <VirtualScroller
-                            v-if="currentLabelImage"
-                            ref="virtualScrollerRef"
-                            :items="labelImageList"
-                            :itemSize="100"
-                            lazy
-                            @lazy-load="onLazyLoad"
+                        <VirtualScroller v-if="currentLabelImage" ref="virtualScrollerRef" :items="labelImageList"
+                            :itemSize="100" lazy @lazy-load="onLazyLoad"
                             class="w-full h-full border border-surface-200 dark:border-surface-700 rounded-md"
-                            style="scroll-behavior: smooth; overflow-x: hidden; height: 100%"
-                        >
+                            style="scroll-behavior: smooth; overflow-x: hidden; height: 100%">
                             <template v-slot:item="{ item, options }">
-                                <div
-                                    :class="{
-                                        'bg-primary-300 dark:bg-primary-900 border-6 rounded-md border-primary-300 dark:border-primary-900': item.id == currentLabelImage.id,
-                                        'bg-surface-200 dark:bg-surface-900 border-6 rounded-md border-surface-200 dark:border-surface-900 opacity-60': item.id != currentLabelImage.id
-                                    }"
-                                    class="label-image h-[86px] flex items-center justify-center m-4 gap-2 overflow-hidden cursor-pointer relative"
+                                <div :class="{
+                                    'bg-primary-300 dark:bg-primary-900 border-6 rounded-md border-primary-300 dark:border-primary-900': item.id == currentLabelImage.id,
+                                    'bg-surface-200 dark:bg-surface-900 border-6 rounded-md border-surface-200 dark:border-surface-900 opacity-60': item.id != currentLabelImage.id
+                                }" class="label-image h-[86px] flex items-center justify-center m-4 gap-2 overflow-hidden cursor-pointer relative"
                                     @click="switchLabelImage(item.id)"
-                                    :title="t('page.label.imagetitle', [item.id, options.index + 1])"
-                                >
-                                    <div class="text-gray-500 absolute text-md font-bold" style="width: 100px; height: 30px; left: -35px; top: 20px; transform: rotate(-90deg); text-align: center">
+                                    :title="t('page.label.imagetitle', [item.id, options.index + 1])">
+                                    <div class="text-gray-500 absolute text-md font-bold"
+                                        style="width: 100px; height: 30px; left: -35px; top: 20px; transform: rotate(-90deg); text-align: center">
                                         {{ options.index + 1 }}
                                     </div>
                                     <div class="w-full h-full flex items-center justify-center position-relative">
@@ -3442,47 +3556,75 @@ onBeforeUnmount(() => {
             </div>
             <div class="h-full" style="width: calc(100% - 20rem)">
                 <div class="w-full" style="height: 100vh; padding: 10px">
-                    <Splitter class="w-full h-full" @resizestart="onSplitterResizeStart" @resizeend="onSplitterResizeEnd">
-                        <SplitterPanel :size="60" :minSize="30" class="flex items-center justify-center" @focus="onSplitterPanelFocus">
+                    <Splitter class="w-full h-full" @resizestart="onSplitterResizeStart"
+                        @resizeend="onSplitterResizeEnd">
+                        <SplitterPanel :size="60" :minSize="30" class="flex items-center justify-center"
+                            @focus="onSplitterPanelFocus">
                             <div class="w-full">
-                                <div class="w-full rounded-t-xs flex items-center bg-surface-200 dark:bg-surface-600" style="height: 38px">
+                                <div class="w-full rounded-t-xs flex items-center bg-surface-200 dark:bg-surface-600"
+                                    style="height: 38px">
                                     <!-- 菜单栏 -->
                                     <div class="w-full flex items-center justify-between gap-2 ml-2 mr-2">
                                         <div class="flex items-center justify-start w-[12rem] min-w-[9rem]">
-                                            <div class="text-sm text-surface-500 dark:text-surface-400">{{ t('page.label.labelmode', [drawingMode ? t('page.label.drawmode') : t('page.label.adjustmode')]) }}</div>
-                                            <div class="pl-1 text-surface-500 dark:text-surface-400 cursor-pointer"><i class="pi pi-question-circle" style="font-size: 11px" @click="helpVisible = true" /></div>
+                                            <div class="text-sm text-surface-500 dark:text-surface-400">{{
+                                                t('page.label.labelmode',
+                                                    [drawingMode ? t('page.label.drawmode') : t('page.label.adjustmode')])
+                                            }}</div>
+                                            <div class="pl-1 text-surface-500 dark:text-surface-400 cursor-pointer"><i
+                                                    class="pi pi-question-circle" style="font-size: 11px"
+                                                    @click="helpVisible = true" /></div>
                                             <Drawer v-model:visible="helpVisible" :header="t('page.label.help')">
-                                                <div class="w-full h-full"><iframe :src="`${base}/static/${getLanguage().code}/help.html`" class="w-full h-full rounded-md text-sm" frameborder="0"></iframe></div>
+                                                <div class="w-full h-full"><iframe
+                                                        :src="`${base}/static/${getLanguage().code}/help.html`"
+                                                        class="w-full h-full rounded-md text-sm"
+                                                        frameborder="0"></iframe></div>
                                             </Drawer>
                                         </div>
 
                                         <div class="flex items-center gap-2">
                                             <ButtonGroup>
-                                                <Button :size="'small'" v-tooltip.bottom="t('page.label.drawnotice')" @click="startDrawRectangles" :severity="drawingMode ? 'primary' : 'secondary'" icon="pi pi-stop" />
+                                                <Button :size="'small'" v-tooltip.bottom="t('page.label.drawnotice')"
+                                                    @click="startDrawRectangles"
+                                                    :severity="drawingMode ? 'primary' : 'secondary'"
+                                                    icon="pi pi-stop" />
                                                 <!-- <Button icon="pi pi-circle" :size="'small'" v-tooltip.bottom="'圆形框'"/> -->
-                                                <Button icon="pi pi-arrows-alt" :size="'small'" v-tooltip.bottom="t('page.label.adjustnotice')" @click="stopDrawRectangles" :severity="drawingMode ? 'secondary' : 'primary'" />
+                                                <Button icon="pi pi-arrows-alt" :size="'small'"
+                                                    v-tooltip.bottom="t('page.label.adjustnotice')"
+                                                    @click="stopDrawRectangles"
+                                                    :severity="drawingMode ? 'secondary' : 'primary'" />
                                             </ButtonGroup>
-                                            <Button icon="pi pi-eye" :size="'small'" v-tooltip.bottom="t('page.label.preview')" @click="openLabelRectDialog" :severity="selectedLabelId ? 'primary' : 'secondary'" />
-                                            <Button icon="pi pi-search-plus" :size="'small'" v-tooltip.bottom="t('page.label.zoomin')" @click="zoomIn" />
-                                            <Button icon="pi pi-search-minus" :size="'small'" v-tooltip.bottom="t('page.label.zoomout')" @click="zoomOut" />
-                                            <Button icon="pi pi-replay" :size="'small'" v-tooltip.bottom="t('page.label.undo')" @click="undoHistory" :disabled="historyUndo.length == 0" />
-                                            <Button icon="pi pi-refresh" :size="'small'" v-tooltip.bottom="t('page.label.redo')" @click="redoHistory" :disabled="historyRedo.length == 0" />
-                                            <Button icon="pi pi-bullseye" :size="'small'" v-tooltip.bottom="t('page.label.reset')" @click="resetImage" />
-                                            <Button icon="pi pi-ellipsis-v" :size="'small'" v-tooltip.bottom="t('page.label.moremenu')" @click="toggleMoreMenu" />
+                                            <Button icon="pi pi-eye" :size="'small'"
+                                                v-tooltip.bottom="t('page.label.preview')" @click="openLabelRectDialog"
+                                                :severity="selectedLabelId ? 'primary' : 'secondary'" />
+                                            <Button icon="pi pi-search-plus" :size="'small'"
+                                                v-tooltip.bottom="t('page.label.zoomin')" @click="zoomIn" />
+                                            <Button icon="pi pi-search-minus" :size="'small'"
+                                                v-tooltip.bottom="t('page.label.zoomout')" @click="zoomOut" />
+                                            <Button icon="pi pi-replay" :size="'small'"
+                                                v-tooltip.bottom="t('page.label.undo')" @click="undoHistory"
+                                                :disabled="historyUndo.length == 0" />
+                                            <Button icon="pi pi-refresh" :size="'small'"
+                                                v-tooltip.bottom="t('page.label.redo')" @click="redoHistory"
+                                                :disabled="historyRedo.length == 0" />
+                                            <Button icon="pi pi-bullseye" :size="'small'"
+                                                v-tooltip.bottom="t('page.label.reset')" @click="resetImage" />
+                                            <Button icon="pi pi-ellipsis-v" :size="'small'"
+                                                v-tooltip.bottom="t('page.label.moremenu')" @click="toggleMoreMenu" />
                                             <Button
                                                 :icon="isFullscreen ? 'pi pi-window-minimize' : 'pi pi-window-maximize'"
                                                 :size="'small'"
                                                 v-tooltip.bottom="isFullscreen ? t('page.label.exitfullscreen') : t('page.label.fullscreen')"
-                                                @click="toggleFullscreen"
-                                            />
+                                                @click="toggleFullscreen" />
                                             <!-- <Button icon="pi pi-question" :size="'small'" v-tooltip.bottom="'帮助'"/> -->
                                             <!-- <Menu ref="moreMenuRef" :model="moreMenuItems" :popup="true" /> -->
                                             <Popover ref="op">
                                                 <div class="flex flex-col gap-2 w-[20rem] select-none">
-                                                    <div class="text-sm font-medium text-surface-500 dark:text-surface-400">
+                                                    <div
+                                                        class="text-sm font-medium text-surface-500 dark:text-surface-400">
                                                         {{ t('page.label.moreoperation') }}
                                                     </div>
-                                                    <div class="flex items-center gap-2 text-surface-700 dark:text-surface-300">
+                                                    <div
+                                                        class="flex items-center gap-2 text-surface-700 dark:text-surface-300">
                                                         <div>
                                                             <i class="pi pi-hammer" />
                                                         </div>
@@ -3492,44 +3634,60 @@ onBeforeUnmount(() => {
                                                     </div>
                                                     <div class="ml-6">
                                                         <div class="flex items-center gap-4 mt-1">
-                                                            <div class="w-30 cursor-pointer text-surface-700 dark:text-surface-300 hover:text-primary-500" @click="labelImageRotate(-90)">
+                                                            <div class="w-30 cursor-pointer text-surface-700 dark:text-surface-300 hover:text-primary-500"
+                                                                @click="labelImageRotate(-90)">
                                                                 <i class="pi pi-directions-alt" />
                                                                 {{ t('page.label.rotateleft') }}
                                                             </div>
-                                                            <div class="cursor-pointer text-surface-700 dark:text-surface-300 hover:text-primary-500" @click="labelImageRotate(90)">
+                                                            <div class="cursor-pointer text-surface-700 dark:text-surface-300 hover:text-primary-500"
+                                                                @click="labelImageRotate(90)">
                                                                 <i class="pi pi-directions" />
                                                                 {{ t('page.label.rotateright') }}
                                                             </div>
                                                         </div>
                                                         <div class="flex items-center gap-4 mt-4">
-                                                            <div class="w-30 text-surface-700 dark:text-surface-300"><i class="pi pi-sun" /> {{ t('page.label.brightness') }}</div>
+                                                            <div class="w-30 text-surface-700 dark:text-surface-300"><i
+                                                                    class="pi pi-sun" /> {{ t('page.label.brightness')
+                                                                    }}</div>
                                                             <div>
-                                                                <Slider v-model="imageBrightness" :min="0" :max="100" :step="1" class="w-26" @slideend="labelImageChange('brightness')" />
+                                                                <Slider v-model="imageBrightness" :min="0" :max="100"
+                                                                    :step="1" class="w-26"
+                                                                    @slideend="labelImageChange('brightness')" />
                                                             </div>
                                                             <div>
                                                                 {{ imageBrightness }}
                                                             </div>
                                                         </div>
                                                         <div class="flex items-center gap-4 mt-4">
-                                                            <div class="w-30 text-surface-700 dark:text-surface-300"><i class="pi pi-star-half" /> {{ t('page.label.contrast') }}</div>
+                                                            <div class="w-30 text-surface-700 dark:text-surface-300"><i
+                                                                    class="pi pi-star-half" /> {{
+                                                                        t('page.label.contrast') }}</div>
                                                             <div>
-                                                                <Slider v-model="imageContrast" :min="0" :max="100" :step="1" class="w-26" @slideend="labelImageChange('contrast')" />
+                                                                <Slider v-model="imageContrast" :min="0" :max="100"
+                                                                    :step="1" class="w-26"
+                                                                    @slideend="labelImageChange('contrast')" />
                                                             </div>
                                                             <div>
                                                                 {{ imageContrast }}
                                                             </div>
                                                         </div>
                                                         <div class="flex items-center gap-4 mt-4 mb-2">
-                                                            <div class="w-30 text-surface-700 dark:text-surface-300"><i class="pi pi-sparkles" /> {{ t('page.label.saturation') }}</div>
+                                                            <div class="w-30 text-surface-700 dark:text-surface-300"><i
+                                                                    class="pi pi-sparkles" /> {{
+                                                                        t('page.label.saturation') }}</div>
                                                             <div>
-                                                                <Slider v-model="imageSaturation" :min="0" :max="100" :step="1" class="w-26" @slideend="labelImageChange('saturation')" />
+                                                                <Slider v-model="imageSaturation" :min="0" :max="100"
+                                                                    :step="1" class="w-26"
+                                                                    @slideend="labelImageChange('saturation')" />
                                                             </div>
                                                             <div>
                                                                 {{ imageSaturation }}
                                                             </div>
                                                         </div>
                                                         <div class="flex items-center gap-4 mt-4 mb-2">
-                                                            <div class="w-30 cursor-pointer text-surface-700 dark:text-surface-300 hover:text-primary-500" @click="labelImageReset"><i class="pi pi-sync" /> {{ t('page.label.imagereset') }}</div>
+                                                            <div class="w-30 cursor-pointer text-surface-700 dark:text-surface-300 hover:text-primary-500"
+                                                                @click="labelImageReset"><i class="pi pi-sync" /> {{
+                                                                    t('page.label.imagereset') }}</div>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -3537,10 +3695,13 @@ onBeforeUnmount(() => {
                                         </div>
                                         <div class="flex items-center justify-end gap-1 w-[12rem] min-w-[8rem]">
                                             <div class="text-sm">
-                                                <span :style="{ color: crosshairVisible ? 'var(--p-primary-500)' : 'var(--p-surface-400)' }">{{ t('page.label.crosshair') }}</span>
+                                                <span
+                                                    :style="{ color: crosshairVisible ? 'var(--p-primary-500)' : 'var(--p-surface-400)' }">{{
+                                                        t('page.label.crosshair') }}</span>
                                             </div>
                                             <ToggleSwitch v-model="crosshairVisible" />
-                                            <Button icon="pi pi-cog" :size="'small'" severity="secondary" variant="text" rounded @click="settingPopoverToggle" />
+                                            <Button icon="pi pi-cog" :size="'small'" severity="secondary" variant="text"
+                                                rounded @click="settingPopoverToggle" />
                                             <Popover ref="settingPopover">
                                                 <div class="flex flex-col w-[12rem] text-sm">
                                                     <div class="flex items-center justify-between gap-4 mr-1">
@@ -3576,11 +3737,14 @@ onBeforeUnmount(() => {
                                                     <Divider />
                                                     <div class="flex items-center justify-between">
                                                         <div>
-                                                            <Button severity="secondary" size="small" icon="pi pi-times" rounded @click="settingPopoverToggle" />
+                                                            <Button severity="secondary" size="small" icon="pi pi-times"
+                                                                rounded @click="settingPopoverToggle" />
                                                         </div>
                                                         <div class="flex items-center justify-end gap-2">
-                                                            <Button severity="secondary" size="small" :label="t('page.common.reset')" @click="resetSetting" />
-                                                            <Button severity="primary" size="small" :label="t('page.common.submit')" @click="saveSetting" />
+                                                            <Button severity="secondary" size="small"
+                                                                :label="t('page.common.reset')" @click="resetSetting" />
+                                                            <Button severity="primary" size="small"
+                                                                :label="t('page.common.submit')" @click="saveSetting" />
                                                         </div>
                                                     </div>
                                                 </div>
@@ -3588,70 +3752,86 @@ onBeforeUnmount(() => {
                                         </div>
                                     </div>
                                 </div>
-                                <div class="w-full bg-surface-400 dark:bg-surface-800" style="height: calc(100vh - 100px)">
+                                <div class="w-full bg-surface-400 dark:bg-surface-800"
+                                    style="height: calc(100vh - 100px)">
                                     <!-- 图片 canvas 区 -->
                                     <div class="w-full h-full relative">
-                                        <div id="imageCanvasBox" class="w-full h-full absolute top-0 left-0 overflow-hidden">
+                                        <div id="imageCanvasBox"
+                                            class="w-full h-full absolute top-0 left-0 overflow-hidden">
                                             <canvas ref="imageCanvas" id="imageCanvas" />
                                         </div>
                                     </div>
                                 </div>
-                                <div class="w-full rounded-b-xs flex items-center bg-surface-200 dark:bg-surface-600" style="height: 38px">
+                                <div class="w-full rounded-b-xs flex items-center bg-surface-200 dark:bg-surface-600"
+                                    style="height: 38px">
                                     <!-- 鼠标坐标信息展示栏 -->
                                     <div class="w-full flex items-center justify-between">
-                                        <div class="flex items-center text-surface-500 dark:text-surface-400 gap-2 ml-2 mr-2">
+                                        <div
+                                            class="flex items-center text-surface-500 dark:text-surface-400 gap-2 ml-2 mr-2">
                                             <div class="text-sm">
-                                                {{ t('page.label.currentzoom') }}<span id="current_zoom">{{ currentZoom.toFixed(2) }}</span>
+                                                {{ t('page.label.currentzoom') }}<span id="current_zoom">{{
+                                                    currentZoom.toFixed(2)
+                                                    }}</span>
                                             </div>
                                             <div class="text-sm">
-                                                {{ t('page.label.mouseposition') }}(x=<span id="cursor_postion_x">{{ currentMousePositionX }}</span
-                                                >, y=<span id="cursor_postion_y" class="w-5">{{ currentMousePositionY }}</span
-                                                >)
+                                                {{ t('page.label.mouseposition') }}(x=<span id="cursor_postion_x">{{
+                                                    currentMousePositionX }}</span>, y=<span id="cursor_postion_y"
+                                                    class="w-5">{{
+                                                        currentMousePositionY }}</span>)
                                             </div>
                                         </div>
                                         <div class="flex items-center gap-2 ml-2 mr-2">
-                                            <div class="flex items-center text-sm text-surface-500 dark:text-surface-400 gap-2" v-if="currentLabelImage">
+                                            <div class="flex items-center text-sm text-surface-500 dark:text-surface-400 gap-2"
+                                                v-if="currentLabelImage">
                                                 <div class="flex items-center gap-2">
                                                     <i class="pi pi-image"></i>
-                                                    {{ currentLabelImage.width ?? 0 }} x {{ currentLabelImage.height ?? 0 }} {{ t('page.label.pixel') }}
+                                                    {{ currentLabelImage.width ?? 0 }} x {{ currentLabelImage.height ??
+                                                        0 }} {{
+                                                        t('page.label.pixel') }}
                                                 </div>
-                                                <div class="flex items-center gap-2"><i class="pi pi-server" style="font-size: 0.95rem"></i> {{ fileSizeStr(currentLabelImage.file_size ?? 0) }}</div>
+                                                <div class="flex items-center gap-2"><i class="pi pi-server"
+                                                        style="font-size: 0.95rem"></i> {{
+                                                            fileSizeStr(currentLabelImage.file_size
+                                                                ?? 0) }}</div>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
                         </SplitterPanel>
-                        <SplitterPanel :size="40" :minSize="30" class="flex items-center justify-center" @focus="onSplitterPanelFocus">
+                        <SplitterPanel :size="40" :minSize="30" class="flex items-center justify-center"
+                            @focus="onSplitterPanelFocus">
                             <div class="w-full">
-                                <div class="w-full rounded-t-xs flex items-center bg-surface-200 dark:bg-surface-600" style="height: 38px">
+                                <div class="w-full rounded-t-xs flex items-center bg-surface-200 dark:bg-surface-600"
+                                    style="height: 38px">
                                     <div class="w-full flex items-center justify-between gap-2 ml-2 mr-2">
                                         <div class="w-full flex items-center justify-center gap-2">
                                             <ButtonGroup>
-                                                <Button :label="t('page.label.bboxlist')" :severity="rightPanelMode === 1 ? 'primary' : 'secondary'" size="small" icon="pi pi-clone" @click="switchRightPanelMode(1)" />
-                                                <Button :label="t('page.label.bboxedit')" :severity="rightPanelMode === 2 ? 'primary' : 'secondary'" size="small" icon="pi pi-file-edit" @click="switchRightPanelMode(2)" />
-                                                <Button :label="t('page.label.labelpreview')" :severity="rightPanelMode === 3 ? 'primary' : 'secondary'" size="small" icon="pi pi-book" @click="switchRightPanelMode(3)" />
+                                                <Button :label="t('page.label.bboxlist')"
+                                                    :severity="rightPanelMode === 1 ? 'primary' : 'secondary'"
+                                                    size="small" icon="pi pi-clone" @click="switchRightPanelMode(1)" />
+                                                <Button :label="t('page.label.bboxedit')"
+                                                    :severity="rightPanelMode === 2 ? 'primary' : 'secondary'"
+                                                    size="small" icon="pi pi-file-edit"
+                                                    @click="switchRightPanelMode(2)" />
+                                                <Button :label="t('page.label.labelpreview')"
+                                                    :severity="rightPanelMode === 3 ? 'primary' : 'secondary'"
+                                                    size="small" icon="pi pi-book" @click="switchRightPanelMode(3)" />
                                             </ButtonGroup>
                                         </div>
                                     </div>
                                 </div>
-                                <div class="w-full bg-surface-400 dark:bg-surface-800" style="height: calc(100vh - 100px); overflow: hidden">
+                                <div class="w-full bg-surface-400 dark:bg-surface-800"
+                                    style="height: calc(100vh - 100px); overflow: hidden">
                                     <!-- Datatable container -->
                                     <div class="p-2" style="height: 100%; overflow-x: hidden; position: relative">
                                         <div v-if="rightPanelMode === 1">
-                                            <DataTable
-                                                :value="imageLabelData.filter((o) => !o.deleted)"
-                                                v-model:selection="selectedImageLabelData"
-                                                selectionMode="single"
-                                                :scrollable="false"
-                                                showGridlines
-                                                @row-select="onRowSelect"
-                                                @row-unselect="onRowUnSelect"
-                                                @row-dblclick="dblEditLabelData"
-                                                @row-reorder="onRowReorder"
-                                                @mousemove="onRowMouseMove"
-                                                @mouseout="onRowMouseOut"
-                                            >
+                                            <DataTable :value="imageLabelData.filter((o) => !o.deleted)"
+                                                v-model:selection="selectedImageLabelData" selectionMode="single"
+                                                :scrollable="false" showGridlines @row-select="onRowSelect"
+                                                @row-unselect="onRowUnSelect" @row-dblclick="dblEditLabelData"
+                                                @row-reorder="onRowReorder" @mousemove="onRowMouseMove"
+                                                @mouseout="onRowMouseOut">
                                                 <Column rowReorder :reorderableColumn="false" />
                                                 <Column field="id" :header="t('page.label.bbox')">
                                                     <template #body="slotProps">
@@ -3664,26 +3844,33 @@ onBeforeUnmount(() => {
                                                     <template #body="slotProps">
                                                         <div class="text-sm min-w-[10rem]">
                                                             <div class="flex items-center w-full">
-                                                                <div class="w-1/2">(x<sub>1</sub>={{ slotProps.data.pos1[0].toFixed(1) }}</div>
-                                                                <div class="pl-2">y<sub>1</sub>={{ slotProps.data.pos1[1].toFixed(1) }})</div>
+                                                                <div class="w-1/2">(x<sub>1</sub>={{
+                                                                    slotProps.data.pos1[0].toFixed(1) }}</div>
+                                                                <div class="pl-2">y<sub>1</sub>={{
+                                                                    slotProps.data.pos1[1].toFixed(1) }})</div>
                                                             </div>
                                                             <div class="flex items-center w-full">
-                                                                <div class="w-1/2">(x<sub>2</sub>={{ slotProps.data.pos2[0].toFixed(1) }}</div>
-                                                                <div class="pl-2">y<sub>2</sub>={{ slotProps.data.pos2[1].toFixed(1) }})</div>
+                                                                <div class="w-1/2">(x<sub>2</sub>={{
+                                                                    slotProps.data.pos2[0].toFixed(1) }}</div>
+                                                                <div class="pl-2">y<sub>2</sub>={{
+                                                                    slotProps.data.pos2[1].toFixed(1) }})</div>
                                                             </div>
                                                         </div>
                                                     </template>
                                                 </Column>
                                                 <Column field="category" :header="t('page.label.category')">
                                                     <template #body="slotProps">
-                                                        <div class="text-sm w-20">{{ slotProps.data.category.name }}</div>
+                                                        <div class="text-sm w-20">{{ slotProps.data.category.name }}
+                                                        </div>
                                                     </template>
                                                 </Column>
                                                 <Column :header="t('page.label.operation')">
                                                     <template #body="slotProps">
                                                         <div class="flex items-center gap-2">
-                                                            <i class="pi pi-pen-to-square" @click="editLabelData(slotProps.data)"></i>
-                                                            <i class="pi pi-times" @click="deleteLabel(slotProps.data)"></i>
+                                                            <i class="pi pi-pen-to-square"
+                                                                @click="editLabelData(slotProps.data)"></i>
+                                                            <i class="pi pi-times"
+                                                                @click="deleteLabel(slotProps.data)"></i>
                                                         </div>
                                                     </template>
                                                 </Column>
@@ -3691,30 +3878,46 @@ onBeforeUnmount(() => {
                                         </div>
                                         <div v-if="rightPanelMode === 2">
                                             <div v-if="imageLabelData.filter((item) => !item.deleted).length === 0">
-                                                <div class="text-center text-sm text-gray-600 dark:text-gray-400 bg-surface-300 dark:bg-surface-700 p-4 pt-2 pb-2 rounded-md">
+                                                <div
+                                                    class="text-center text-sm text-gray-600 dark:text-gray-400 bg-surface-300 dark:bg-surface-700 p-4 pt-2 pb-2 rounded-md">
                                                     <div>{{ t('page.label.noLabel') }}</div>
                                                 </div>
                                             </div>
                                             <div v-else-if="!selectedImageLabelData">
-                                                <div class="text-center text-sm text-gray-600 dark:text-gray-400 bg-surface-300 dark:bg-surface-700 p-4 pt-2 pb-2 rounded-md">
+                                                <div
+                                                    class="text-center text-sm text-gray-600 dark:text-gray-400 bg-surface-300 dark:bg-surface-700 p-4 pt-2 pb-2 rounded-md">
                                                     <div>{{ t('page.label.selectbbox') }}</div>
                                                 </div>
                                             </div>
-                                            <div v-if="selectedImageLabelData" class="text-sm text-gray-300 dark:text-gray-400 bg-surface-500 dark:bg-surface-700 p-4 pt-2 pb-2 rounded-md">
+                                            <div v-if="selectedImageLabelData"
+                                                class="text-sm text-gray-300 dark:text-gray-400 bg-surface-500 dark:bg-surface-700 p-4 pt-2 pb-2 rounded-md">
                                                 <div class="w-full flex items-center justify-between mb-2">
-                                                    <div class="min-w-[6rem]">{{ t('page.label.labelnumbercategory') }}</div>
+                                                    <div class="min-w-[6rem]">{{ t('page.label.labelnumbercategory') }}
+                                                    </div>
                                                     <div class="flex justify-between gap-2">
                                                         <div class="w-[10rem]">
                                                             <InputGroup style="zoom: 0.85">
-                                                                <Button size="small" @mousedown="changeLabelNumber(-1)" @mouseup="endLongPress" icon="pi pi-angle-left"></Button>
-                                                                <InputNumber v-model="selectedImageLabelData.labelNumber" size="small" placeholder="x1" readonly integeronly :min="1" :max="999" />
-                                                                <Button size="small" @mousedown="changeLabelNumber(1)" @mouseup="endLongPress" icon="pi pi-angle-right"></Button>
+                                                                <Button size="small" @mousedown="changeLabelNumber(-1)"
+                                                                    @mouseup="endLongPress"
+                                                                    icon="pi pi-angle-left"></Button>
+                                                                <InputNumber
+                                                                    v-model="selectedImageLabelData.labelNumber"
+                                                                    size="small" placeholder="x1" readonly integeronly
+                                                                    :min="1" :max="999" />
+                                                                <Button size="small" @mousedown="changeLabelNumber(1)"
+                                                                    @mouseup="endLongPress"
+                                                                    icon="pi pi-angle-right"></Button>
                                                             </InputGroup>
                                                         </div>
                                                         <div class="w-[10rem]">
                                                             <InputGroup style="zoom: 0.85">
-                                                                <Button size="small" @mousedown="changeLabelCategory(-1)" @mouseup="endLongPress" icon="pi pi-angle-left"></Button>
-                                                                <Select v-model="selectedImageLabelData.category" :options="labelCategories" optionLabel="name" size="small" fluid>
+                                                                <Button size="small"
+                                                                    @mousedown="changeLabelCategory(-1)"
+                                                                    @mouseup="endLongPress"
+                                                                    icon="pi pi-angle-left"></Button>
+                                                                <Select v-model="selectedImageLabelData.category"
+                                                                    :options="labelCategories" optionLabel="name"
+                                                                    size="small" fluid>
                                                                     <template #option="slotProps">
                                                                         <div class="flex items-center">
                                                                             <div class="text-sm">
@@ -3724,7 +3927,9 @@ onBeforeUnmount(() => {
                                                                         </div>
                                                                     </template>
                                                                 </Select>
-                                                                <Button size="small" @mousedown="changeLabelCategory(1)" @mouseup="endLongPress" icon="pi pi-angle-right"></Button>
+                                                                <Button size="small" @mousedown="changeLabelCategory(1)"
+                                                                    @mouseup="endLongPress"
+                                                                    icon="pi pi-angle-right"></Button>
                                                             </InputGroup>
                                                         </div>
                                                     </div>
@@ -3735,71 +3940,56 @@ onBeforeUnmount(() => {
                                                     <div class="flex justify-between gap-2">
                                                         <div class="w-[10rem]">
                                                             <InputGroup style="zoom: 0.85">
-                                                                <Button size="small" @mousedown="startLongPress(0, -1)" @mouseup="endLongPress" icon="pi pi-minus"></Button>
-                                                                <InputNumber
-                                                                    v-model="selectedImageLabelData.pos1[0]"
-                                                                    size="small"
-                                                                    placeholder="x1"
-                                                                    readonly
-                                                                    inputId="withoutgrouping"
-                                                                    :useGrouping="false"
-                                                                    :minFractionDigits="1"
-                                                                    :maxFractionDigits="1"
-                                                                />
-                                                                <Button size="small" @mousedown="startLongPress(0, 1)" @mouseup="endLongPress" icon="pi pi-plus"></Button>
+                                                                <Button size="small" @mousedown="startLongPress(0, -1)"
+                                                                    @mouseup="endLongPress" icon="pi pi-minus"></Button>
+                                                                <InputNumber v-model="selectedImageLabelData.pos1[0]"
+                                                                    size="small" placeholder="x1" readonly
+                                                                    inputId="withoutgrouping" :useGrouping="false"
+                                                                    :minFractionDigits="1" :maxFractionDigits="1" />
+                                                                <Button size="small" @mousedown="startLongPress(0, 1)"
+                                                                    @mouseup="endLongPress" icon="pi pi-plus"></Button>
                                                             </InputGroup>
                                                         </div>
                                                         <div class="w-[10rem]">
                                                             <InputGroup style="zoom: 0.85">
-                                                                <Button size="small" @mousedown="startLongPress(1, -1)" @mouseup="endLongPress" icon="pi pi-minus"></Button>
-                                                                <InputNumber
-                                                                    v-model="selectedImageLabelData.pos1[1]"
-                                                                    size="small"
-                                                                    placeholder="y1"
-                                                                    readonly
-                                                                    inputId="withoutgrouping"
-                                                                    :useGrouping="false"
-                                                                    :minFractionDigits="1"
-                                                                    :maxFractionDigits="1"
-                                                                />
-                                                                <Button size="small" @mousedown="startLongPress(1, 1)" @mouseup="endLongPress" icon="pi pi-plus"></Button>
+                                                                <Button size="small" @mousedown="startLongPress(1, -1)"
+                                                                    @mouseup="endLongPress" icon="pi pi-minus"></Button>
+                                                                <InputNumber v-model="selectedImageLabelData.pos1[1]"
+                                                                    size="small" placeholder="y1" readonly
+                                                                    inputId="withoutgrouping" :useGrouping="false"
+                                                                    :minFractionDigits="1" :maxFractionDigits="1" />
+                                                                <Button size="small" @mousedown="startLongPress(1, 1)"
+                                                                    @mouseup="endLongPress" icon="pi pi-plus"></Button>
                                                             </InputGroup>
                                                         </div>
                                                     </div>
                                                 </div>
                                                 <div class="w-full flex items-center justify-between mb-2">
-                                                    <div class="min-w-[6rem]">{{ t('page.label.rightcoordinate') }}</div>
+                                                    <div class="min-w-[6rem]">{{ t('page.label.rightcoordinate') }}
+                                                    </div>
                                                     <div class="flex justify-between gap-2">
                                                         <div class="w-[10rem]">
                                                             <InputGroup style="zoom: 0.85">
-                                                                <Button size="small" @mousedown="startLongPress(2, -1)" @mouseup="endLongPress" icon="pi pi-minus"></Button>
-                                                                <InputNumber
-                                                                    v-model="selectedImageLabelData.pos2[0]"
-                                                                    size="small"
-                                                                    placeholder="x2"
-                                                                    readonly
-                                                                    inputId="withoutgrouping"
-                                                                    :useGrouping="false"
-                                                                    :minFractionDigits="1"
-                                                                    :maxFractionDigits="1"
-                                                                />
-                                                                <Button size="small" @mousedown="startLongPress(2, 1)" @mouseup="endLongPress" icon="pi pi-plus"></Button>
+                                                                <Button size="small" @mousedown="startLongPress(2, -1)"
+                                                                    @mouseup="endLongPress" icon="pi pi-minus"></Button>
+                                                                <InputNumber v-model="selectedImageLabelData.pos2[0]"
+                                                                    size="small" placeholder="x2" readonly
+                                                                    inputId="withoutgrouping" :useGrouping="false"
+                                                                    :minFractionDigits="1" :maxFractionDigits="1" />
+                                                                <Button size="small" @mousedown="startLongPress(2, 1)"
+                                                                    @mouseup="endLongPress" icon="pi pi-plus"></Button>
                                                             </InputGroup>
                                                         </div>
                                                         <div class="w-[10rem]">
                                                             <InputGroup style="zoom: 0.85">
-                                                                <Button size="small" @mousedown="startLongPress(3, -1)" @mouseup="endLongPress" icon="pi pi-minus"></Button>
-                                                                <InputNumber
-                                                                    v-model="selectedImageLabelData.pos2[1]"
-                                                                    size="small"
-                                                                    placeholder="y2"
-                                                                    readonly
-                                                                    inputId="withoutgrouping"
-                                                                    :useGrouping="false"
-                                                                    :minFractionDigits="1"
-                                                                    :maxFractionDigits="1"
-                                                                />
-                                                                <Button size="small" @mousedown="startLongPress(3, 1)" @mouseup="endLongPress" icon="pi pi-plus"></Button>
+                                                                <Button size="small" @mousedown="startLongPress(3, -1)"
+                                                                    @mouseup="endLongPress" icon="pi pi-minus"></Button>
+                                                                <InputNumber v-model="selectedImageLabelData.pos2[1]"
+                                                                    size="small" placeholder="y2" readonly
+                                                                    inputId="withoutgrouping" :useGrouping="false"
+                                                                    :minFractionDigits="1" :maxFractionDigits="1" />
+                                                                <Button size="small" @mousedown="startLongPress(3, 1)"
+                                                                    @mouseup="endLongPress" icon="pi pi-plus"></Button>
                                                             </InputGroup>
                                                         </div>
                                                     </div>
@@ -3813,61 +4003,46 @@ onBeforeUnmount(() => {
                                                         </div>
                                                     </div>
                                                     <!-- 富文本编辑 -->
-                                                    <div class="w-full overflow-hidden pb-1" :class="sourceToggle ? 'hidden' : 'block'">
+                                                    <div class="w-full overflow-hidden pb-1"
+                                                        :class="sourceToggle ? 'hidden' : 'block'">
                                                         <QuillEditor
-                                                            v-model:editorOutput="selectedImageLabelData.ocrText"
-                                                            @editorOutputChanged="editorOutputChanged"
+                                                            v-model:editorOutput="selectedImageLabelData.editorValue"
                                                             :editorValue="selectedImageLabelData.editorValue"
-                                                            :toolbarHeight="40"
-                                                            :editorHeight="editorHeight"
-                                                        >
+                                                            :toolbarHeight="40" :editorHeight="editorHeight">
                                                         </QuillEditor>
                                                     </div>
                                                     <!-- 源码编辑 -->
-                                                    <div class="w-full overflow-hidden" :class="sourceToggle ? 'block' : 'hidden'">
-                                                        <Textarea
-                                                            v-model="selectedImageLabelData.ocrText"
+                                                    <div class="w-full overflow-hidden"
+                                                        :class="sourceToggle ? 'block' : 'hidden'">
+                                                        <Textarea v-model="editorValueSourceText"
                                                             class="w-full border border-gray-300 rounded-md resize-none"
                                                             :style="{ height: editorHeight + 40 + 'px', lineHeight: '24px' }"
-                                                            spellcheck="false"
-                                                            @input="sourceTextChanged"
-                                                        ></Textarea>
+                                                            spellcheck="false"></Textarea>
                                                     </div>
                                                 </div>
 
                                                 <div class="w-full flex items-center justify-between mb-2">
                                                     <div>
-                                                        <Button
-                                                            severity="primary"
-                                                            icon="pi pi-angle-left"
-                                                            rounded
-                                                            size="small"
-                                                            @click="prevImageLabel"
-                                                            :disabled="imageLabelData.filter((item) => !item.deleted).findIndex((item) => item.id === selectedLabelId) <= 0"
-                                                        />
+                                                        <Button severity="primary" icon="pi pi-angle-left" rounded
+                                                            size="small" @click="prevImageLabel"
+                                                            :disabled="imageLabelData.filter((item) => !item.deleted).findIndex((item) => item.id === selectedLabelId) <= 0" />
                                                     </div>
                                                     <div>
                                                         <ButtonGroup>
-                                                            <Button :severity="!sourceToggle ? 'primary' : 'secondary'" :label="t('page.label.richedit')" rounded size="small" @click="sourceToggle = false" style="font-size: 12px; line-height: 12px" />
-                                                            <Button
-                                                                :severity="sourceToggle ? 'primary' : 'secondary'"
-                                                                :label="t('page.label.rawtextedit')"
-                                                                rounded
-                                                                size="small"
-                                                                @click="sourceToggle = true"
-                                                                style="font-size: 12px; line-height: 12px"
-                                                            />
+                                                            <Button :severity="!sourceToggle ? 'primary' : 'secondary'"
+                                                                :label="t('page.label.richedit')" rounded size="small"
+                                                                @click="editorSourceToggle(false)"
+                                                                style="font-size: 12px; line-height: 12px" />
+                                                            <Button :severity="sourceToggle ? 'primary' : 'secondary'"
+                                                                :label="t('page.label.rawtextedit')" rounded
+                                                                size="small" @click="editorSourceToggle(true)"
+                                                                style="font-size: 12px; line-height: 12px" />
                                                         </ButtonGroup>
                                                     </div>
                                                     <div>
-                                                        <Button
-                                                            severity="primary"
-                                                            icon="pi pi-angle-right"
-                                                            rounded
-                                                            size="small"
-                                                            @click="nextImageLabel"
-                                                            :disabled="imageLabelData.filter((item) => !item.deleted).findIndex((item) => item.id === selectedLabelId) >= imageLabelData.filter((item) => !item.deleted).length - 1"
-                                                        />
+                                                        <Button severity="primary" icon="pi pi-angle-right" rounded
+                                                            size="small" @click="nextImageLabel"
+                                                            :disabled="imageLabelData.filter((item) => !item.deleted).findIndex((item) => item.id === selectedLabelId) >= imageLabelData.filter((item) => !item.deleted).length - 1" />
                                                     </div>
                                                 </div>
                                             </div>
@@ -3875,54 +4050,65 @@ onBeforeUnmount(() => {
                                         <div v-if="rightPanelMode === 3">
                                             <div class="w-full h-full flex flex-col items-center justify-center">
                                                 <div class="w-full">
-                                                    <div v-if="imageLabelData.filter((item) => !item.deleted).length === 0">
-                                                        <div class="text-center text-sm text-gray-600 dark:text-gray-400 bg-surface-300 dark:bg-surface-700 p-4 pt-2 pb-2 rounded-md">
+                                                    <div
+                                                        v-if="imageLabelData.filter((item) => !item.deleted).length === 0">
+                                                        <div
+                                                            class="text-center text-sm text-gray-600 dark:text-gray-400 bg-surface-300 dark:bg-surface-700 p-4 pt-2 pb-2 rounded-md">
                                                             <div>{{ t('page.label.nolabel') }}</div>
                                                         </div>
                                                     </div>
-                                                    <div class="w-full overflow-hidden" v-for="lableInfo in imageLabelData.filter((item) => !item.deleted)" :key="lableInfo.id">
-                                                        <div
-                                                            class="ocr-html m-1 p-2 overflow-hidden rounded text-surface-900 bg-surface-300 dark:text-surface-100 dark:bg-surface-900"
+                                                    <div class="w-full overflow-hidden"
+                                                        v-for="lableInfo in imageLabelData.filter((item) => !item.deleted)"
+                                                        :key="lableInfo.id">
+                                                        <div class="ocr-html m-1 p-2 overflow-hidden rounded text-surface-900 bg-surface-300 dark:text-surface-100 dark:bg-surface-900"
                                                             :class="{ 'ocr-html-active': lableInfo.id === selectedLabelId }"
-                                                            v-html="lableInfo.category.is_figure ? cropCanvasImage2Html(lableInfo) : lableInfo.editorValue ? lableInfo.editorValue : '=该区块尚未标注内容='"
+                                                            v-html="lableInfo.category.is_figure ? cropCanvasImage2Html(lableInfo) : lableInfo.editorValue ? editorValue2Preview(lableInfo.editorValue) : '=该区块尚未标注内容='"
                                                             :id="'ocr-html-' + lableInfo.id"
                                                             @click="onOcrHtmlClick(lableInfo)"
                                                             @dblclick="editLabelData(lableInfo)"
                                                             @mousemove="onOcrHtmlMouseMove(lableInfo)"
-                                                            @mouseout="onOcrHtmlMouseOut(lableInfo)"
-                                                        ></div>
+                                                            @mouseout="onOcrHtmlMouseOut(lableInfo)"></div>
                                                     </div>
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
-                                <div class="w-full rounded-b-xs flex items-center bg-surface-200 dark:bg-surface-600" style="height: 38px">
+                                <div class="w-full rounded-b-xs flex items-center bg-surface-200 dark:bg-surface-600"
+                                    style="height: 38px">
                                     <!-- 保存栏 -->
                                     <div class="w-full flex items-center justify-between px-2">
                                         <div class="flex items-center gap-2">
                                             <ButtonGroup class="min-w-[12rem]">
-                                                <Button :label="t('page.label.previmage')" severity="secondary" size="small" icon="pi pi-arrow-left" @click="toPrevLabelImage" />
-                                                <Button :label="t('page.label.nextimage')" severity="secondary" size="small" icon="pi pi-arrow-right" @click="toNextLabelImage" iconPos="right" />
+                                                <Button :label="t('page.label.previmage')" severity="secondary"
+                                                    size="small" icon="pi pi-arrow-left" @click="toPrevLabelImage" />
+                                                <Button :label="t('page.label.nextimage')" severity="secondary"
+                                                    size="small" icon="pi pi-arrow-right" @click="toNextLabelImage"
+                                                    iconPos="right" />
                                             </ButtonGroup>
                                         </div>
                                         <div class="flex items-center gap-2">
-                                            <Select v-model="dataType" :options="dataTypeItems" optionLabel="name" class="w-[8rem]" size="small">
+                                            <Select v-model="dataType" :options="dataTypeItems" optionLabel="name"
+                                                class="w-[8rem]" size="small">
                                                 <template #option="slotProps">
                                                     <div class="flex items-center">
                                                         <div class="text-sm">{{ slotProps.option.name }}</div>
                                                     </div>
                                                 </template>
                                             </Select>
-                                            <Button class="min-w-[6rem]" :label="t('page.common.save')" severity="primary" size="small" icon="pi pi-save" @click="saveLabelData" />
-                                            <Button class="min-w-[6rem]" :label="t('page.common.reset')" severity="secondary" size="small" icon="pi pi-hashtag" />
+                                            <Button class="min-w-[6rem]" :label="t('page.common.save')"
+                                                severity="primary" size="small" icon="pi pi-save"
+                                                @click="saveLabelData" />
+                                            <Button class="min-w-[6rem]" :label="t('page.common.reset')"
+                                                severity="secondary" size="small" icon="pi pi-hashtag" />
                                         </div>
                                     </div>
                                 </div>
                             </div>
                         </SplitterPanel>
                     </Splitter>
-                    <Dialog v-model:visible="labelRectVisible" :keepInViewport="false" :style="{ maxWidth: '50vw', paddingBottom: '2rem' }" :closable="false">
+                    <Dialog v-model:visible="labelRectVisible" :keepInViewport="false"
+                        :style="{ maxWidth: '50vw', paddingBottom: '2rem' }" :closable="false">
                         <template #header>
                             <div class="w-full flex items-center justify-between gap-2 pb-2">
                                 <div class="flex items-center gap-4">
@@ -3932,16 +4118,19 @@ onBeforeUnmount(() => {
                                     </div>
                                     <div class="flex items-center gap-2">
                                         <ButtonGroup>
-                                            <Button icon="pi pi-angle-left" size="small" rounded @click="prevImageLabel"></Button>
+                                            <Button icon="pi pi-angle-left" size="small" rounded
+                                                @click="prevImageLabel"></Button>
                                             <Button size="small">
                                                 {{ selectedImageLabelData.labelNumber }}
                                             </Button>
-                                            <Button icon="pi pi-angle-right" size="small" rounded @click="nextImageLabel"></Button>
+                                            <Button icon="pi pi-angle-right" size="small" rounded
+                                                @click="nextImageLabel"></Button>
                                         </ButtonGroup>
                                     </div>
                                 </div>
                                 <div class="flex items-center gap-2">
-                                    <Button icon="pi pi-times" size="small" rounded severity="secondary" @click="labelRectVisible = false"></Button>
+                                    <Button icon="pi pi-times" size="small" rounded severity="secondary"
+                                        @click="labelRectVisible = false"></Button>
                                 </div>
                             </div>
                         </template>
@@ -4024,6 +4213,15 @@ div.ocr-html-active {
     background-color: var(--p-datatable-row-selected-background);
     border-style: solid;
     /* border-width: 2px; */
+}
+
+/* 表格边框可见 */
+:deep(.p-editor-content table td) {
+    border: 1px solid var(--p-surface-400);
+}
+
+:deep(div.ocr-html table td) {
+    border: 1px solid var(--p-surface-400);
 }
 
 :deep(div.ocr-html math-field) {

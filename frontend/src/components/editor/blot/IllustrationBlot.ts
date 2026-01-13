@@ -70,9 +70,18 @@ export class IllustrationBlot extends EmbedBlot {
     }
 
     html() {
+        const id = this.domNode.id;
+        const src = this.domNode.getAttribute('data-src');
         const position = this.domNode.getAttribute('data-position');
-        // const src = this.domNode.getAttribute('data-src');
-        return `\\begin{figure}\\includegraphics[position=${position}]{}\\end{figure}`;
+        const caption = this.domNode.querySelector('span')?.innerText || '';
+        const positionArr = position?.split(',') || [];
+        const left = positionArr[0] || '0';
+        const top = positionArr[1] || '0';
+        const width = positionArr[2] || '0';
+        const height = positionArr[3] || '0';
+        const imageWidth = positionArr[4] || '0';
+        const imageHeight = positionArr[5] || '0';
+        return `<div class="ql-illustrate" id="${id}" data-src="${src || ''}" data-position="${position || ''}" contenteditable="false" style="display: inline-block; text-align: center; margin: 0; padding: 0; border-width: 1px; border-color: transparent; user-select: none; cursor: default;"><label></label><div style="background-image: url(${src || ''}); background-position: ${-1 * Number(left)}px ${-1 * Number(top)}px; background-size: ${imageWidth}px ${imageHeight}px; width: ${width}px; height: ${height}px;"></div><span style="display: ${caption ? 'inline-block' : 'none'}; word-break: break-all;">${caption}</span></div>`;
     }
 }
 

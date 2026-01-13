@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import Editor from './Quillbase.vue';
+import Editor from './QuillBase.vue';
 import { useDialog } from 'primevue/usedialog';
 import { $dom } from './Util';
 
@@ -18,7 +18,7 @@ import DashedUnderlineBlot from './blot/DashedUnderlineBlot';
 import DotUnderlineBlot from './blot/DotUnderlineBlot';
 import NormalUnderlineBlot from './blot/NormalUnderlineBlot';
 import HatchingLineBlot from './blot/HatchingLineBlot';
-import MathFieldBlot from './blot/MathFieldBlot';
+import MathFieldBlot from './blot/MathfieldBlot';
 import TikZJaxBlot from './blot/TikZJaxBlot';
 import IllustrationBlot from './blot/IllustrationBlot';
 import QuillTableBetter from 'quill-table-better';

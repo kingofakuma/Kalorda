@@ -2105,9 +2105,9 @@ const uuid = () => {
 const replaceN = (str: string) => {
     return str.trim().replace(/\n/g, '\v\t');
 };
-const unReplaceN = (str: string) => {
-    return str.trim().replace(/\v\t/g, '\n');
-};
+// const unReplaceN = (str: string) => {
+//     return str.trim().replace(/\v\t/g, '\n');
+// };
 
 // 这里markdown2Html主要是为了纯web显示
 const markdown2Html = async (markdown: string, imageInfo: any) => {
@@ -2354,7 +2354,19 @@ const markdown2Html = async (markdown: string, imageInfo: any) => {
         text = text.replace(find, mathField);
     }
 
-    // 表格 latex
+    // TODO latex table 转 html table
+
+    // 普通html表格添加table-better属性
+    reg = /<table([^>]*?)>([\s\S]*?)<\/table>/gi;
+    while ((res = reg.exec(text))) {
+        let find = res[0];
+        let table_attr = res[1];
+        let table_content = res[2];
+        if (table_attr.indexOf('table-better') == -1) {
+            let temporary = `<temporary class="ql-table-temporary" style="width: 100%" data-class="ql-table-better"></temporary>`;
+            text = text.replace(find, `<table width="100%" class="table-better">${temporary}${table_content}</table>`);
+        }
+    }
 
     // 文本格式 markdown
     reg = /~~([\s\S]*)~~/gi;
@@ -2395,13 +2407,15 @@ const markdown2Html = async (markdown: string, imageInfo: any) => {
     //     text = text.replace(find, `<i>${replaceN(content)}</i>`);
     // }
 
-    let paragraphs = text.split('\n'); // 对余下的\n分割成段落
-    for (let i = 0; i < paragraphs.length; i++) {
-        paragraphs[i] = `<p>${unReplaceN(paragraphs[i])}</p>`; // 去除段落前后的空格
-    }
-    text = paragraphs.join('');
+    // let paragraphs = text.split('\n'); // 对余下的\n分割成段落
+    // for (let i = 0; i < paragraphs.length; i++) {
+    //     paragraphs[i] = `<p>${unReplaceN(paragraphs[i])}</p>`; // 去除段落前后的空格
+    // }
+    // text = paragraphs.join('');
 
-    let html = text.replace(/<p([^>]*?)>([\s\S]*?)<\/p>/gi, '<div$1>$2</div>');
+    // let html = text.replace(/<p([^>]*?)>([\s\S]*?)<\/p>/gi, '<div$1>$2</div>');
+    // return html;
+    let html = text;
     return html;
 };
 

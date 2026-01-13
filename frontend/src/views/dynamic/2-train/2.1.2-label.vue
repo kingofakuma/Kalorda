@@ -3015,9 +3015,10 @@ const uuid = () => {
 const replaceN = (str: string) => {
     return str.trim().replace(/\n/g, '\v\t');
 };
-const unReplaceN = (str: string) => {
-    return str.trim().replace(/\v\t/g, '\n');
-};
+// const unReplaceN = (str: string) => {
+//     return str.trim().replace(/\v\t/g, '\n');
+// };
+
 
 // 这里markdown2Html主要是为了编辑器内web显示
 const markdown2Html = async (markdown: string) => {
@@ -3232,8 +3233,20 @@ const markdown2Html = async (markdown: string) => {
         let mathField = `<math-field mode="only-read" id="mathfield-${uuid()}" class="ql-math-field view">${replaceN(latexContent)}</math-field>`;
         text = text.replace(find, mathField);
     }
+    
+    // TODO latex table 转 html table
 
-    // 表格 latex
+    // 普通html表格添加table-better属性
+    reg = /<table([^>]*?)>([\s\S]*?)<\/table>/gi;
+    while ((res = reg.exec(text))) {
+        let find = res[0];
+        let table_attr = res[1];
+        let table_content = res[2];
+        if (table_attr.indexOf('table-better') == -1) {
+            let temporary = `<temporary class="ql-table-temporary" style="width: 100%" data-class="ql-table-better"></temporary>`;
+            text = text.replace(find, `<table width="100%" class="table-better">${temporary}${table_content}</table>`);
+        }
+    }
 
     // 文本格式 markdown
     reg = /~~([\s\S]*)~~/gi;
@@ -3274,11 +3287,11 @@ const markdown2Html = async (markdown: string) => {
     //     text = text.replace(find, `<i>${replaceN(content)}</i>`);
     // }
 
-    let paragraphs = text.split('\n'); // 对余下的\n分割成段落
-    for (let i = 0; i < paragraphs.length; i++) {
-        paragraphs[i] = `<p>${unReplaceN(paragraphs[i])}</p>`; // 去除段落前后的空格
-    }
-    text = paragraphs.join('');
+    // let paragraphs = text.split('\n'); // 对余下的\n分割成段落
+    // for (let i = 0; i < paragraphs.length; i++) {
+    //     paragraphs[i] = `<p>${unReplaceN(paragraphs[i])}</p>`; // 去除段落前后的空格
+    // }
+    // text = paragraphs.join('');
 
     // let html = text.replace(/<p([^>]*?)>([\s\S]*?)<\/p>/gi, '<div$1>$2</div>');
     // return html;
@@ -3346,6 +3359,20 @@ const html2Markdown = (html: string) => {
     // 引用
     html = html.replace(/<blockquote([^>]*?)>([\s\S]*?)<\/blockquote>/gi, '> $2\\n');
 
+    // 下划线
+    html = html.replace(/<u class="ql-normal-underline"([\s\S]*?)>([\s\S]*?)<\/u>/gi, '\\uline{$2}');
+    html = html.replace(/<u class="ql-double-underline"([\s\S]*?)>([\s\S]*?)<\/u>/gi, '\\uuline{$2}');
+    html = html.replace(/<u class="ql-dashed-underline"([\s\S]*?)>([\s\S]*?)<\/u>/gi, '\\dashuline{$2}');
+    html = html.replace(/<u class="ql-dot-underline"([\s\S]*?)>([\s\S]*?)<\/u>/gi, '\\dotuline{$2}');
+    html = html.replace(/<u class="ql-hatching-underline"([\s\S]*?)>([\s\S]*?)<\/u>/gi, '\\xout{$2}');
+    html = html.replace(/<u class="ql-wavy-underline"([\s\S]*?)>([\s\S]*?)<\/u>/gi, '\\uwave{$2}');
+    // html = html.replace(/<s([\s\S]*?)>([\s\S]*?)<\/s>/gi, '\\sout{$2}');
+
+    // 上下标
+    // html = html.replace(/<sup>([\s\S]*?)<\/sup>/gi, '\\textsuperscript{$1}');
+    // html = html.replace(/<sub>([\s\S]*?)<\/sub>/gi, '\\textsubscript{$1}');
+
+    // 插图插画
 
     // 公式
     reg = /<math-field([\s\S]*?)>([\s\S]*?)<\/math-field>/gi;
@@ -3518,7 +3545,7 @@ onBeforeUnmount(() => {
                     <div class="flex gap-2"><Button icon="pi pi-reply" :size="'small'" rounded class="mr-2"
                             @click="routeBack()" style="transform: rotateY(180deg)" /></div>
                     <div class="font-semibold text-xl"><i class="pi pi-longPressFlag-fill" /> {{ t('page.label.title')
-                        }}</div>
+                    }}</div>
                 </div>
                 <div class="w-full ml-8 bg-white dark:bg-surface-800 rounded-md" style="height: calc(100vh - 70px)">
                     <div class="w-full h-full select-none">
@@ -3771,7 +3798,7 @@ onBeforeUnmount(() => {
                                             <div class="text-sm">
                                                 {{ t('page.label.currentzoom') }}<span id="current_zoom">{{
                                                     currentZoom.toFixed(2)
-                                                    }}</span>
+                                                }}</span>
                                             </div>
                                             <div class="text-sm">
                                                 {{ t('page.label.mouseposition') }}(x=<span id="cursor_postion_x">{{

@@ -1,5 +1,5 @@
 import { InternalAxiosRequestConfig, AxiosResponse } from 'axios';
-import { getMD5 } from '../common';
+import { getMD5 } from '../Common';
 
 //对axios请求提供进行前端本地缓存控制方案
 //通过在发起请求时在请求头headers里添加自定义的Cache-Time设置来控制是否进行缓存及缓存的过期时间（单位秒）

@@ -3,7 +3,7 @@
 import { useLayout } from '@/layout/composables/layout';
 import AppConfigurator from './AppConfigurator.vue';
 import AppConfigLang from './AppConfigLang.vue';
-import AppFullscreen from './AppFullscreen.vue';
+import AppFullscreen from './AppFullScreen.vue';
 import { AuthService } from '@/services/AuthService';
 import { delToken, ACCESS_TOKEN_KEY, getAccessTokenValue } from '@/utils/Token';
 import { gotoRoute, promise2 } from '@/utils/Common';

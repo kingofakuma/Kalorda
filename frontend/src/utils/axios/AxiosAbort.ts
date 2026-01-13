@@ -1,5 +1,5 @@
 import { InternalAxiosRequestConfig } from 'axios';
-import { getMD5, getCurRoute } from '../common';
+import { getMD5, getCurRoute } from '../Common';
 
 //提供对axios重复请求的中止控制
 //发起某个请求后，如果在该请求未返回数据前如果又发送相同请求，后发送的重复请求会自动abort掉，只留第一次发送的请求，前置防抖

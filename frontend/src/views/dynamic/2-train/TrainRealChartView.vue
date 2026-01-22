@@ -134,6 +134,7 @@ const _parseLogs = (logs: Array<any>) => {
     let eval_epochs_arr: any = [];
     let summary_obj: any = {};
     let eval_summary_obj: any = {};
+    let latest_global_step = 0;
     for (let i = 0; i < logs.length; i++) {
         let msg_id = logs[i].msg_id;
         let log = logs[i].data.log;
@@ -161,8 +162,13 @@ const _parseLogs = (logs: Array<any>) => {
             if (!summary_obj.max_steps && max_steps > 0) {
                 summary_obj.max_steps = max_steps;
             }
+            if (global_step > latest_global_step) {
+                latest_global_step = global_step;
+            }
             // 进度百分比
-            summary_obj.percentage = Number(data['percentage'].replace('%', ''));
+            if (typeof data['percentage'] === 'string') {
+                summary_obj.percentage = Number(data['percentage'].replace('%', ''));
+            }
             // 已用时间
             summary_obj.elapsed_time = data['elapsed_time'];
             // 剩余时间
@@ -175,6 +181,7 @@ const _parseLogs = (logs: Array<any>) => {
                 continue;
             }
             let global_step = Number(data['global_step/max_steps'].split('/')[0]);
+            let max_steps = Number(data['global_step/max_steps'].split('/')[1]);
             let eval_epoch = {
                 id: msg_id, // 每个log的唯一标识msg_id
                 eval_loss: data['eval_loss'],
@@ -184,6 +191,12 @@ const _parseLogs = (logs: Array<any>) => {
                 global_step: global_step, // 类似23/50的格式，取23
                 train_speed: data['train_speed(iter/s)']
             };
+            if (!summary_obj.max_steps && max_steps > 0) {
+                summary_obj.max_steps = max_steps;
+            }
+            if (global_step > latest_global_step) {
+                latest_global_step = global_step;
+            }
             // 因为eval总结性日志和普通eval打印格式一样，需要判断处理一下
             let find_index = eval_epochs_arr.findIndex((item: any) => item.global_step == eval_epoch.global_step);
             if (find_index < 0) {
@@ -204,6 +217,16 @@ const _parseLogs = (logs: Array<any>) => {
         }
     }
 
+    if (summary_obj.max_steps && latest_global_step) {
+        let computed_percentage = Math.min(100, (latest_global_step / summary_obj.max_steps) * 100);
+        if (!summary_obj.percentage || computed_percentage > summary_obj.percentage) {
+            summary_obj.percentage = Number(computed_percentage.toFixed(2));
+        }
+    }
+    if (summary_obj.train_runtime) {
+        summary_obj.percentage = 100;
+    }
+
     let train_loss_arr = [];
     let train_gnorm_arr = [];
     let train_lrate_arr = [];
@@ -221,7 +244,7 @@ const _parseLogs = (logs: Array<any>) => {
         train_lrate_arr.push(epoch.learning_rate);
         train_token_acc_arr.push(epoch.token_acc);
         train_train_speed_arr.push(epoch.train_speed);
-        xAxis_arr.push(i + 1);
+        xAxis_arr.push(epoch.global_step || i + 1);
     }
     for (let i = 0; i < eval_epochs_arr.length; i++) {
         let epoch = eval_epochs_arr[i];
@@ -272,14 +295,6 @@ const unwatchChartContainerResize = () => {
     resizeObserver.unobserve(target);
     resizeObserver.disconnect();
 };
-
-watch(
-    () => props.logs,
-    (newLogs: Array<any>) => {
-        parseLogs(newLogs);
-    },
-    { deep: 1 }
-);
 
 watch(
     () => props.logs,

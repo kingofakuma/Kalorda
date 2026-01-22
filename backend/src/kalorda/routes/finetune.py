@@ -803,6 +803,8 @@ def create_training_run(
             lora_alpha=run_data.lora_alpha,
             batch_size=run_data.batch_size,
             gradient_accumulation_steps=run_data.gradient_accumulation_steps,
+            logging_steps=run_data.logging_steps,
+            eval_steps=run_data.eval_steps,
             warmup_ratio=run_data.warmup_ratio,
             weight_decay=run_data.weight_decay,
             max_seq_len=run_data.max_seq_len,
@@ -832,6 +834,8 @@ def create_training_run(
             lora_alpha=training_run.lora_alpha,
             batch_size=training_run.batch_size,
             gradient_accumulation_steps=training_run.gradient_accumulation_steps,
+            logging_steps=training_run.logging_steps,
+            eval_steps=training_run.eval_steps,
             warmup_ratio=training_run.warmup_ratio,
             weight_decay=training_run.weight_decay,
             max_seq_len=training_run.max_seq_len,
@@ -917,6 +921,8 @@ def update_training_run(
         training_run.lora_alpha = run_data.lora_alpha
         training_run.batch_size = run_data.batch_size
         training_run.gradient_accumulation_steps = run_data.gradient_accumulation_steps
+        training_run.logging_steps = run_data.logging_steps
+        training_run.eval_steps = run_data.eval_steps
         training_run.warmup_ratio = run_data.warmup_ratio
         training_run.weight_decay = run_data.weight_decay
         training_run.max_seq_len = run_data.max_seq_len
@@ -942,6 +948,8 @@ def update_training_run(
             lora_alpha=training_run.lora_alpha,
             batch_size=training_run.batch_size,
             gradient_accumulation_steps=training_run.gradient_accumulation_steps,
+            logging_steps=training_run.logging_steps,
+            eval_steps=training_run.eval_steps,
             warmup_ratio=training_run.warmup_ratio,
             weight_decay=training_run.weight_decay,
             max_seq_len=training_run.max_seq_len,
@@ -1065,6 +1073,8 @@ def get_training_runs(
                 lora_alpha=run.lora_alpha,
                 batch_size=run.batch_size,
                 gradient_accumulation_steps=run.gradient_accumulation_steps,
+                logging_steps=run.logging_steps if run.logging_steps else 1,
+                eval_steps=run.eval_steps if run.eval_steps else 1,
                 warmup_ratio=run.warmup_ratio,
                 weight_decay=run.weight_decay,
                 max_seq_len=run.max_seq_len,

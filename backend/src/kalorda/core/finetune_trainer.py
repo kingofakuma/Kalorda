@@ -139,9 +139,9 @@ async def finetune_with_ms_swift(training_run_id: int, gpu_device: str):
             "--output_dir",
             task_base_dir,
             "--logging_steps",
-            "1",
+            str(training_run.logging_steps),
             "--eval_steps",
-            "1",
+            str(training_run.eval_steps),
             "--save_total_limit",
             "1",
         ]

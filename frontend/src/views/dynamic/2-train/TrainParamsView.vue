@@ -52,6 +52,8 @@ const lr_warmup_iters_ratio = ref('0.001');
 const max_grad_norm = ref('1.0');
 const split_dataset_ratio = ref('0');
 const gradient_accumulation_steps = ref('2');
+const logging_steps = ref('1');
+const eval_steps = ref('1');
 const weight_decay = ref('0.01');
 
 const max_seq_len = ref('8192');
@@ -88,6 +90,8 @@ const getTrainParams = () => {
         max_grad_norm: max_grad_norm.value,
         split_dataset_ratio: split_dataset_ratio.value,
         gradient_accumulation_steps: gradient_accumulation_steps.value,
+        logging_steps: logging_steps.value,
+        eval_steps: eval_steps.value,
         weight_decay: weight_decay.value,
         max_seq_len: max_seq_len.value
     };
@@ -119,6 +123,8 @@ const setTrainParams = () => {
             target_modules.value = all_target_modules.filter((item) => props.training_run.target_modules.includes(item.value));
         }
         gradient_accumulation_steps.value = props.training_run.gradient_accumulation_steps;
+        logging_steps.value = props.training_run.logging_steps;
+        eval_steps.value = props.training_run.eval_steps;
         max_seq_len.value = props.training_run.max_seq_len;
         max_grad_norm.value = props.training_run.max_grad_norm;
         weight_decay.value = props.training_run.weight_decay;
@@ -266,7 +272,7 @@ onMounted(() => {
                     </div>
                 </div>
 
-                <div class="flex items-center justify-between gap-10 w-full m-3 ml-0">
+                <div class="flex items-center justify-between gap-10 w-full m-3 ml-0 hidden">
                     <div class="flex items-center gap-2 w-full">
                         <div class="w-1/4">
                             <label for="lr_warmup_iters_ratio" class="block font-medium">LR warmup iters ratio ：</label>
@@ -319,6 +325,25 @@ onMounted(() => {
                         </div>
                         <div class="w-3/4">
                             <InputText type="text" id="max_grad_norm" name="max_grad_norm" v-model="max_grad_norm" class="mt-1 p-2 border border-gray-600 rounded-md w-full" spellcheck="false" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-between gap-10 w-full m-3 ml-0">
+                    <div class="flex items-center gap-2 w-full">
+                        <div class="w-1/4">
+                            <label for="logging_steps" class="block font-medium">Logging steps：</label>
+                        </div>
+                        <div class="w-3/4">
+                            <InputText type="text" id="logging_steps" name="logging_steps" v-model="logging_steps" class="mt-1 p-2 border border-gray-600 rounded-md w-full" spellcheck="false" />
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2 w-full">
+                        <div class="w-1/4">
+                            <label for="eval_steps" class="block font-medium">Eval steps：</label>
+                        </div>
+                        <div class="w-3/4">
+                            <InputText type="text" id="eval_steps" name="eval_steps" v-model="eval_steps" class="mt-1 p-2 border border-gray-600 rounded-md w-full" spellcheck="false" />
                         </div>
                     </div>
                 </div>

